@@ -47,6 +47,20 @@ export const SCHOOLS = [
 
 export const LISTING_TYPES = ["sell", "donate"] as const;
 
-export const COMMISSION_RATE = 0.08;
+/** Platform listing fee as a fraction of the asking price (10%). */
+export const LISTING_FEE_RATE = 0.1;
+
+/** @deprecated Prefer LISTING_FEE_RATE — kept for homepage savings calc */
+export const COMMISSION_RATE = LISTING_FEE_RATE;
+
+export function calcListingFee(price: number | null | undefined): number {
+  if (price == null || Number.isNaN(price) || price <= 0) return 0;
+  return Math.round(price * LISTING_FEE_RATE * 100) / 100;
+}
+
+export function formatListingFee(price: number | null | undefined): string {
+  const fee = calcListingFee(price);
+  return fee > 0 ? `$${fee.toFixed(2)}` : "$0.00";
+}
 
 export const MAX_LISTINGS_PER_USER = 10;

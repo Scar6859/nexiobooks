@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { formatListingFee } from "@/lib/constants";
 import type { ListingWithSeller } from "@/lib/types";
 import ImageGallery from "./ImageGallery";
 import RequestModal from "./RequestModal";
@@ -30,6 +31,8 @@ export default function BookCard({
     listing.listing_type === "donate" || listing.price === null
       ? "Free"
       : `$${Number(listing.price).toFixed(0)}`;
+  const showListingFee =
+    isOwn && listing.listing_type === "sell" && listing.price != null;
 
   async function onDelete() {
     if (!confirm(`Remove "${listing.title}"? This cannot be undone.`)) return;
@@ -106,6 +109,14 @@ export default function BookCard({
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-[var(--gold-muted)]">{priceLabel}</div>
+              {showListingFee && (
+                <div className="mt-1 text-xs text-[var(--muted)]">
+                  Listing fee:{" "}
+                  <span className="font-semibold text-[var(--foreground)]">
+                    {formatListingFee(Number(listing.price))}
+                  </span>
+                </div>
+              )}
               {!isOwn && (
                 <button
                   type="button"

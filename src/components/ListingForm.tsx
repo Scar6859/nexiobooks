@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { CONDITIONS, TOPICS, SCHOOLS, MAX_LISTINGS_PER_USER } from "@/lib/constants";
+import {
+  CONDITIONS,
+  TOPICS,
+  SCHOOLS,
+  MAX_LISTINGS_PER_USER,
+  LISTING_FEE_RATE,
+  calcListingFee,
+  formatListingFee,
+} from "@/lib/constants";
 import { LISTING_LIMIT_MESSAGE, MAX_IMAGES, normalizeImageUrls, uploadListingImages } from "@/lib/listings";
 import type { Listing } from "@/lib/types";
 import FancySelect from "./FancySelect";
@@ -31,8 +39,16 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
   );
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [priceInput, setPriceInput] = useState(
+    listing?.price != null ? String(listing.price) : ""
+  );
 
   const totalImages = existingUrls.length + newFiles.length;
+  const priceNumber = priceInput === "" ? null : Number(priceInput);
+  const listingFee =
+    listingType === "sell" && priceNumber != null && !Number.isNaN(priceNumber)
+      ? calcListingFee(priceNumber)
+      : 0;
 
   function onFilesSelected(files: FileList | null) {
     if (!files) return;
@@ -177,16 +193,38 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
       </div>
 
       {listingType === "sell" && (
-        <input
-          name="price"
-          type="number"
-          min="0"
-          step="0.01"
-          required
-          defaultValue={listing?.price ?? undefined}
-          placeholder="Price"
-          className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[var(--gold-muted)]"
-        />
+        <div className="space-y-2">
+          <input
+            name="price"
+            type="number"
+            min="0"
+            step="0.01"
+            required
+            value={priceInput}
+            onChange={(e) => setPriceInput(e.target.value)}
+            placeholder="Price"
+            className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[var(--gold-muted)]"
+          />
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-medium text-[var(--foreground)]">
+                Listing fee ({Math.round(LISTING_FEE_RATE * 100)}%)
+              </span>
+              <span className="text-base font-semibold text-[var(--gold-muted)]">
+                {formatListingFee(priceNumber)}
+              </span>
+            </div>
+            <p className="mt-1.5 text-[var(--muted)]">
+              Listing fee payments are collected when you hand the book over to us.
+            </p>
+            {listingFee > 0 && priceNumber != null && (
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                On a ${Number(priceNumber).toFixed(2)} book, you keep $
+                {(Number(priceNumber) - listingFee).toFixed(2)} after the fee.
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       <FancySelect
