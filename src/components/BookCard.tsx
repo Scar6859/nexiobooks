@@ -124,9 +124,6 @@ export default function BookCard({
                   ? "You"
                   : listing.seller_name?.trim() || "Student"}
               </div>
-              {!isOwn && listing.seller_school && (
-                <div className="text-[var(--muted)]">{listing.seller_school}</div>
-              )}
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-[var(--gold-muted)]">{priceLabel}</div>
