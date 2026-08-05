@@ -160,10 +160,11 @@ export function attachSellers(
 
   return listings.map((listing) => {
     const profile = profileMap.get(listing.user_id);
+    const seller_name = profile?.full_name?.trim() || null;
     return {
       ...listing,
-      seller_name: profile?.full_name ?? null,
-      seller_school: profile?.school ?? null,
+      seller_name,
+      seller_school: profile?.school?.trim() || null,
     };
   });
 }
@@ -172,13 +173,18 @@ export async function fetchSellerProfiles(
   supabase: SupabaseClient,
   listings: Listing[],
 ) {
-  const sellerIds = [...new Set(listings.map((l) => l.user_id))];
+  const sellerIds = [...new Set(listings.map((l) => l.user_id).filter(Boolean))];
   if (sellerIds.length === 0) return [];
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("id, full_name, school")
     .in("id", sellerIds);
+
+  if (error) {
+    console.error("fetchSellerProfiles", error);
+    return [];
+  }
 
   return data ?? [];
 }

@@ -14,6 +14,7 @@ const nav = [
   { href: "/buy", label: "Buy" },
   { href: "/sell", label: "Sell" },
   { href: "/my-listings", label: "My Listings", auth: true },
+  { href: "/my-requests", label: "My Requests", auth: true },
   { href: "/about", label: "About Us" },
 ];
 

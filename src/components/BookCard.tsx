@@ -14,12 +14,12 @@ export default function BookCard({
   listing,
   isOwn,
   isAdmin,
-  hasRequested,
+  requestStatus,
 }: {
   listing: ListingWithSeller;
   isOwn?: boolean;
   isAdmin?: boolean;
-  hasRequested?: boolean;
+  requestStatus?: "pending" | "accepted" | "declined" | "completed";
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -27,6 +27,7 @@ export default function BookCard({
   const [deleting, setDeleting] = useState(false);
 
   const canManage = isOwn || isAdmin;
+  const hasRequested = Boolean(requestStatus);
   const priceLabel =
     listing.listing_type === "donate" || listing.price === null
       ? "Free"
@@ -34,12 +35,27 @@ export default function BookCard({
   const showListingFee =
     isOwn && listing.listing_type === "sell" && listing.price != null;
 
+  const requestLabel =
+    requestStatus === "accepted"
+      ? "Accepted"
+      : requestStatus === "declined"
+        ? "Declined"
+        : requestStatus === "completed"
+          ? "Completed"
+          : hasRequested
+            ? "Requested"
+            : "Request";
+
   async function onDelete() {
     if (!confirm(`Remove "${listing.title}"? This cannot be undone.`)) return;
     setDeleting(true);
     const { error } = await supabase.from("listings").delete().eq("id", listing.id);
     if (error) {
-      alert(error.message);
+      alert(
+        /row-level security|42501/i.test(error.message)
+          ? "Could not remove listing. Run supabase/fix-live-schema.sql so admin delete permissions are enabled, then log in again."
+          : error.message,
+      );
       setDeleting(false);
       return;
     }
@@ -106,7 +122,7 @@ export default function BookCard({
                 Seller:{" "}
                 {isOwn
                   ? "You"
-                  : listing.seller_name ?? listing.seller_initials ?? "Student"}
+                  : listing.seller_name?.trim() || "Student"}
               </div>
               {!isOwn && listing.seller_school && (
                 <div className="text-[var(--muted)]">{listing.seller_school}</div>
@@ -126,14 +142,24 @@ export default function BookCard({
                 </div>
               )}
               {!isOwn && (
-                <button
-                  type="button"
-                  onClick={() => setShowRequest(true)}
-                  disabled={hasRequested}
-                  className="btn-navy mt-2 px-4 py-1.5 text-sm font-medium disabled:bg-slate-300"
-                >
-                  {hasRequested ? "Requested" : "Request"}
-                </button>
+                <div className="mt-2 flex flex-col items-end gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowRequest(true)}
+                    disabled={hasRequested}
+                    className="btn-navy px-4 py-1.5 text-sm font-medium disabled:bg-slate-300"
+                  >
+                    {requestLabel}
+                  </button>
+                  {hasRequested && (
+                    <Link
+                      href="/my-requests"
+                      className="text-xs font-medium text-[var(--gold-muted)] hover:underline"
+                    >
+                      View status
+                    </Link>
+                  )}
+                </div>
               )}
             </div>
           </div>

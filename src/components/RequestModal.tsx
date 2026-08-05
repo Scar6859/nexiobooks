@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Listing } from "@/lib/types";
@@ -75,8 +76,17 @@ export default function RequestModal({
         </div>
 
         {success ? (
-          <div className="rounded-xl bg-[var(--gold)]/10 p-4 text-sm text-[var(--foreground)]">
-            Request sent! The seller will see your message and can respond through NexioBooks.
+          <div className="space-y-3 rounded-xl bg-[var(--gold)]/10 p-4 text-sm text-[var(--foreground)]">
+            <p>
+              Request sent! Track the status anytime under{" "}
+              <Link
+                href="/my-requests"
+                className="font-semibold text-[var(--gold-muted)] underline"
+              >
+                My Requests
+              </Link>
+              .
+            </p>
           </div>
         ) : (
           <form onSubmit={onSubmit} className="space-y-4">

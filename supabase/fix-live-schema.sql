@@ -114,8 +114,55 @@ create policy "Sellers and admins can update requests"
     or public.is_admin()
   );
 
+alter table public.profiles enable row level security;
+
+drop policy if exists "Profiles are viewable by everyone" on public.profiles;
+create policy "Profiles are viewable by everyone"
+  on public.profiles for select
+  using (true);
+
+drop policy if exists "Users can insert own profile" on public.profiles;
+create policy "Users can insert own profile"
+  on public.profiles for insert
+  with check (auth.uid() = id);
+
+drop policy if exists "Users can update own profile" on public.profiles;
+create policy "Users can update own profile"
+  on public.profiles for update
+  using (auth.uid() = id);
+
 grant select, insert, update, delete on public.profiles to anon, authenticated;
 grant select, insert, update, delete on public.listings to anon, authenticated;
 grant select, insert, update, delete on public.listing_requests to anon, authenticated;
+
+-- Backfill profiles from auth metadata (signup often couldn't write profiles
+-- before email confirmation because RLS requires a session).
+insert into public.profiles (id, full_name, school, initials)
+select
+  u.id,
+  nullif(trim(u.raw_user_meta_data->>'full_name'), ''),
+  nullif(trim(u.raw_user_meta_data->>'school'), ''),
+  nullif(
+    upper(left(regexp_replace(trim(u.raw_user_meta_data->>'full_name'), '\s+', '', 'g'), 2)),
+    ''
+  )
+from auth.users u
+on conflict (id) do update set
+  full_name = coalesce(public.profiles.full_name, excluded.full_name),
+  school = coalesce(public.profiles.school, excluded.school),
+  initials = coalesce(public.profiles.initials, excluded.initials);
+
+-- Designate platform admins (can remove/edit any listing)
+update public.profiles set is_admin = true
+where id in (
+  select id from auth.users
+  where email in ('oscarshao28@gmail.com', 'sonichenry214@gmail.com')
+);
+
+insert into public.profiles (id, full_name, is_admin)
+select id, coalesce(raw_user_meta_data->>'full_name', 'Admin'), true
+from auth.users
+where email in ('oscarshao28@gmail.com', 'sonichenry214@gmail.com')
+on conflict (id) do update set is_admin = true;
 
 notify pgrst, 'reload schema';

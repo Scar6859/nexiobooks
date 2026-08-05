@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isAdminEmail, normalizeEmail } from "@/lib/auth";
+import { normalizeEmail } from "@/lib/auth";
+import { ensureUserProfile } from "@/lib/profile";
 
 function LoginForm() {
   const router = useRouter();
@@ -29,12 +30,8 @@ function LoginForm() {
       return;
     }
 
-    if (isAdminEmail(email) && data.user) {
-      // Ignore failures when is_admin column is not migrated yet.
-      await supabase.from("profiles").upsert({
-        id: data.user.id,
-        is_admin: true,
-      });
+    if (data.user) {
+      await ensureUserProfile(supabase, data.user);
     }
 
     router.push(redirect);

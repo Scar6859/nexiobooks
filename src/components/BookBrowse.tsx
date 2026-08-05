@@ -11,24 +11,22 @@ export default function BookBrowse({
   listings,
   currentUserId,
   isAdmin,
-  requestedListingIds,
+  requestStatusByListingId = {},
   initialDonateOnly = false,
 }: {
   listings: ListingWithSeller[];
   currentUserId?: string;
   isAdmin?: boolean;
-  requestedListingIds?: string[];
+  requestStatusByListingId?: Record<
+    string,
+    "pending" | "accepted" | "declined" | "completed"
+  >;
   initialDonateOnly?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [topic, setTopic] = useState("All");
   const [school, setSchool] = useState("All");
   const [donateOnly, setDonateOnly] = useState(initialDonateOnly);
-
-  const requestedSet = useMemo(
-    () => new Set(requestedListingIds ?? []),
-    [requestedListingIds]
-  );
 
   const filtered = useMemo(() => {
     return listings.filter((l) => {
@@ -106,7 +104,7 @@ export default function BookBrowse({
                 listing={listing}
                 isOwn={listing.user_id === currentUserId}
                 isAdmin={isAdmin}
-                hasRequested={requestedSet.has(listing.id)}
+                requestStatus={requestStatusByListingId[listing.id]}
               />
             </div>
           ))}

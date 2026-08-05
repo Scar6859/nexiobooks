@@ -8,7 +8,6 @@ import { createClient } from "@/lib/supabase/client";
 import {
   DUPLICATE_EMAIL_MESSAGE,
   getSignupErrorMessage,
-  isAdminEmail,
   isDuplicateSignup,
   normalizeEmail,
 } from "@/lib/auth";
@@ -39,6 +38,11 @@ function SignupForm() {
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/confirmed")}`,
+        // Persist name/school for profile creation after email confirm (no session yet).
+        data: {
+          full_name: fullName,
+          school,
+        },
       },
     });
 
@@ -54,37 +58,11 @@ function SignupForm() {
       return;
     }
 
-    if (data.user) {
-      const initials = fullName
-        .split(" ")
-        .map((w) => w[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-
-      const profilePayload: {
-        id: string;
-        full_name: string;
-        school: string;
-        initials: string;
-        is_admin?: boolean;
-      } = {
-        id: data.user.id,
-        full_name: fullName,
-        school,
-        initials,
-      };
-      if (isAdminEmail(email)) profilePayload.is_admin = true;
-
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert(profilePayload);
-
-      // Older DBs may not have is_admin yet — still save the profile.
-      if (profileError && profilePayload.is_admin) {
-        delete profilePayload.is_admin;
-        await supabase.from("profiles").upsert(profilePayload);
-      }
+    // Only works when email confirm is off (session present). Otherwise RLS blocks
+    // this and ensureUserProfile runs after confirm/login from user_metadata.
+    if (data.user && data.session) {
+      const { ensureUserProfile } = await import("@/lib/profile");
+      await ensureUserProfile(supabase, data.user);
     }
 
     if (data.user && !data.session) {

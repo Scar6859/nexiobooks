@@ -1,10 +1,12 @@
 import BookBrowse from "@/components/BookBrowse";
+import { resolveIsAdmin } from "@/lib/auth";
 import {
   attachSellers,
   fetchSellerProfiles,
   normalizeListings,
 } from "@/lib/listings";
 import { createClient } from "@/lib/supabase/server";
+import type { ListingRequest } from "@/lib/types";
 
 export default async function BuyPage({
   searchParams,
@@ -27,7 +29,7 @@ export default async function BuyPage({
   const listingsWithSellers = attachSellers(listings, sellerProfiles);
 
   let isAdmin = false;
-  let requestedListingIds: string[] = [];
+  let requestStatusByListingId: Record<string, ListingRequest["status"]> = {};
 
   if (user) {
     const { data: profile } = await supabase
@@ -36,20 +38,29 @@ export default async function BuyPage({
       .eq("id", user.id)
       .maybeSingle();
 
-    isAdmin = Boolean(
+    isAdmin = resolveIsAdmin(
+      user.email,
       profile &&
         typeof profile === "object" &&
-        "is_admin" in profile &&
-        (profile as { is_admin?: boolean }).is_admin,
+        "is_admin" in profile
+        ? Boolean((profile as { is_admin?: boolean }).is_admin)
+        : false,
     );
+
+    // Keep admin flag in sync when the column exists.
+    if (isAdmin && profile && "is_admin" in profile && !profile.is_admin) {
+      await supabase.from("profiles").upsert({ id: user.id, is_admin: true });
+    }
 
     const { data: requests, error: requestsError } = await supabase
       .from("listing_requests")
-      .select("listing_id")
+      .select("listing_id, status")
       .eq("buyer_id", user.id);
 
-    if (!requestsError) {
-      requestedListingIds = requests?.map((r) => r.listing_id) ?? [];
+    if (!requestsError && requests) {
+      requestStatusByListingId = Object.fromEntries(
+        requests.map((r) => [r.listing_id, r.status as ListingRequest["status"]]),
+      );
     }
   }
 
@@ -67,7 +78,7 @@ export default async function BuyPage({
         listings={listingsWithSellers}
         currentUserId={user?.id}
         isAdmin={isAdmin}
-        requestedListingIds={requestedListingIds}
+        requestStatusByListingId={requestStatusByListingId}
         initialDonateOnly={donate === "1"}
       />
     </div>

@@ -14,6 +14,14 @@ export function isAdminEmail(email: string): boolean {
   return ADMIN_EMAILS.has(normalizeEmail(email));
 }
 
+/** True if profile flag is set or the signed-in email is a designated admin. */
+export function resolveIsAdmin(
+  email: string | null | undefined,
+  profileIsAdmin?: boolean | null,
+): boolean {
+  return Boolean(profileIsAdmin) || (email ? isAdminEmail(email) : false);
+}
+
 export function getSignupErrorMessage(error: { message: string; code?: string }): string {
   const message = error.message.toLowerCase();
 

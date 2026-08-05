@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import BookCard from "@/components/BookCard";
 import IncomingRequests from "@/components/IncomingRequests";
 import { createClient } from "@/lib/supabase/server";
+import { resolveIsAdmin } from "@/lib/auth";
 import { MAX_LISTINGS_PER_USER } from "@/lib/constants";
 import { isListingLimitReached, normalizeListings } from "@/lib/listings";
 import type { ListingRequestWithBuyer, Profile } from "@/lib/types";
@@ -60,6 +61,7 @@ export default async function MyListingsPage() {
   }
 
   const typedProfile = profile as Profile | null;
+  const isAdmin = resolveIsAdmin(user.email, typedProfile?.is_admin);
   const atLimit = isListingLimitReached(typedListings.length);
 
   return (
@@ -114,7 +116,7 @@ export default async function MyListingsPage() {
                 key={listing.id}
                 listing={listing}
                 isOwn
-                isAdmin={typedProfile?.is_admin}
+                isAdmin={isAdmin}
               />
             ))}
           </div>

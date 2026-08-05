@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import ListingForm from "@/components/ListingForm";
 import { getUserListingCount, isListingLimitReached, LISTING_LIMIT_MESSAGE } from "@/lib/listings";
+import { ensureUserProfile, initialsFromName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
+
 export default async function SellPage() {
   const supabase = await createClient();
   const {
@@ -13,12 +15,21 @@ export default async function SellPage() {
     redirect("/login?redirect=/sell");
   }
 
+  await ensureUserProfile(supabase, user);
+
   const [{ data: profile }, listingCount] = await Promise.all([
-    supabase.from("profiles").select("initials").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("full_name, initials")
+      .eq("id", user.id)
+      .maybeSingle(),
     getUserListingCount(supabase, user.id),
   ]);
 
-  const sellerInitials = profile?.initials ?? "ST";
+  const sellerInitials =
+    profile?.initials ||
+    (profile?.full_name ? initialsFromName(profile.full_name) : null) ||
+    "??";
   const atLimit = isListingLimitReached(listingCount);
 
   return (
