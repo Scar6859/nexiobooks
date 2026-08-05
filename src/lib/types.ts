@@ -18,6 +18,7 @@ export type Listing = {
   location: string;
   note: string | null;
   image_urls: string[];
+  video_url: string | null;
   seller_initials: string | null;
   created_at: string;
 };

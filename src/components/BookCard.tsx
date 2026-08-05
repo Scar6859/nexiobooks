@@ -50,7 +50,12 @@ export default function BookCard({
     <>
       <article className="flex h-full flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
         <div className="mb-4 w-full">
-          <ImageGallery urls={listing.image_urls} alt={listing.title} compact />
+          <ImageGallery
+            urls={listing.image_urls}
+            videoUrl={listing.video_url}
+            alt={listing.title}
+            compact
+          />
         </div>
 
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -110,10 +115,13 @@ export default function BookCard({
             <div className="text-right">
               <div className="text-2xl font-bold text-[var(--gold-muted)]">{priceLabel}</div>
               {showListingFee && (
-                <div className="mt-1 text-xs text-[var(--muted)]">
+                <div className="mt-1 max-w-[11rem] text-xs text-[var(--muted)]">
                   Listing fee:{" "}
                   <span className="font-semibold text-[var(--foreground)]">
                     {formatListingFee(Number(listing.price))}
+                  </span>
+                  <span className="mt-0.5 block leading-snug">
+                    Due when you hand the book over. You get the buyer&apos;s full payment.
                   </span>
                 </div>
               )}

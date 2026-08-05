@@ -9,13 +9,19 @@ import {
   SCHOOLS,
   MAX_LISTINGS_PER_USER,
   LISTING_FEE_RATE,
-  calcListingFee,
   formatListingFee,
 } from "@/lib/constants";
-import { LISTING_LIMIT_MESSAGE, MAX_IMAGES, normalizeImageUrls, uploadListingImages } from "@/lib/listings";
+import {
+  LISTING_LIMIT_MESSAGE,
+  MAX_IMAGES,
+  MAX_VIDEO_BYTES,
+  normalizeImageUrls,
+  uploadListingImages,
+  uploadListingVideo,
+} from "@/lib/listings";
 import type { Listing } from "@/lib/types";
 import FancySelect from "./FancySelect";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, Video, X } from "lucide-react";
 
 type ListingFormProps = {
   userId: string;
@@ -24,7 +30,12 @@ type ListingFormProps = {
   listingCount?: number;
 };
 
-export default function ListingForm({ userId, sellerInitials, listing, listingCount = 0 }: ListingFormProps) {
+export default function ListingForm({
+  userId,
+  sellerInitials,
+  listing,
+  listingCount = 0,
+}: ListingFormProps) {
   const router = useRouter();
   const supabase = createClient();
   const isEdit = Boolean(listing);
@@ -32,23 +43,24 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [listingType, setListingType] = useState<"sell" | "donate">(
-    listing?.listing_type ?? "sell"
+    listing?.listing_type ?? "sell",
   );
   const [existingUrls, setExistingUrls] = useState<string[]>(
-    normalizeImageUrls(listing?.image_urls)
+    normalizeImageUrls(listing?.image_urls),
   );
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [existingVideoUrl, setExistingVideoUrl] = useState<string | null>(
+    listing?.video_url ?? null,
+  );
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [priceInput, setPriceInput] = useState(
-    listing?.price != null ? String(listing.price) : ""
+    listing?.price != null ? String(listing.price) : "",
   );
 
   const totalImages = existingUrls.length + newFiles.length;
   const priceNumber = priceInput === "" ? null : Number(priceInput);
-  const listingFee =
-    listingType === "sell" && priceNumber != null && !Number.isNaN(priceNumber)
-      ? calcListingFee(priceNumber)
-      : 0;
 
   function onFilesSelected(files: FileList | null) {
     if (!files) return;
@@ -57,10 +69,7 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
     if (picked.length === 0) return;
 
     setNewFiles((prev) => [...prev, ...picked]);
-    setPreviews((prev) => [
-      ...prev,
-      ...picked.map((f) => URL.createObjectURL(f)),
-    ]);
+    setPreviews((prev) => [...prev, ...picked.map((f) => URL.createObjectURL(f))]);
   }
 
   function removeExisting(url: string) {
@@ -73,6 +82,27 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
       URL.revokeObjectURL(prev[index]);
       return prev.filter((_, i) => i !== index);
     });
+  }
+
+  function onVideoSelected(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    if (file.size > MAX_VIDEO_BYTES) {
+      setError("Video must be 50MB or smaller.");
+      return;
+    }
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setExistingVideoUrl(null);
+    setVideoFile(file);
+    setVideoPreview(URL.createObjectURL(file));
+    setError(null);
+  }
+
+  function clearVideo() {
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideoFile(null);
+    setVideoPreview(null);
+    setExistingVideoUrl(null);
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -94,6 +124,11 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
       const uploaded = await uploadListingImages(supabase, userId, newFiles);
       const image_urls = [...existingUrls, ...uploaded].slice(0, MAX_IMAGES);
 
+      let video_url: string | null = existingVideoUrl;
+      if (videoFile) {
+        video_url = await uploadListingVideo(supabase, userId, videoFile);
+      }
+
       const payload = {
         title,
         topic,
@@ -103,6 +138,7 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
         location,
         note: note || null,
         image_urls,
+        video_url,
         seller_initials: sellerInitials,
       };
 
@@ -134,7 +170,9 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
       setError(
         message.includes("Listing limit") || message.includes("listing limit")
           ? LISTING_LIMIT_MESSAGE
-          : message
+          : message.includes("video_url")
+            ? "Database is missing the video column. Run the video migration SQL in Supabase, then try again."
+            : message,
       );
       setLoading(false);
     }
@@ -151,7 +189,7 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
         </h2>
         <p className="text-sm text-[var(--muted)]">
           {isEdit
-            ? "Update your listing details and photos."
+            ? "Update your listing details, photos, and video."
             : `Create a listing for your study materials. (${listingCount}/${MAX_LISTINGS_PER_USER} used)`}
         </p>
       </div>
@@ -215,14 +253,9 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
               </span>
             </div>
             <p className="mt-1.5 text-[var(--muted)]">
-              Listing fee payments are collected when you hand the book over to us.
+              You pay this {Math.round(LISTING_FEE_RATE * 100)}% listing fee when you hand the
+              book over to us. When a buyer pays, you receive the full amount they pay.
             </p>
-            {listingFee > 0 && priceNumber != null && (
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                On a ${Number(priceNumber).toFixed(2)} book, you keep $
-                {(Number(priceNumber) - listingFee).toFixed(2)} after the fee.
-              </p>
-            )}
           </div>
         </div>
       )}
@@ -233,7 +266,7 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
         required
         defaultValue={
           SCHOOLS.find(
-            (s) => s.toLowerCase() === (listing?.location ?? "").toLowerCase()
+            (s) => s.toLowerCase() === (listing?.location ?? "").toLowerCase(),
           ) ?? SCHOOLS[0]
         }
         options={SCHOOLS}
@@ -253,7 +286,10 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
         </label>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {existingUrls.map((url) => (
-            <div key={url} className="relative aspect-square overflow-hidden rounded-xl bg-[var(--surface-2)]">
+            <div
+              key={url}
+              className="relative aspect-square overflow-hidden rounded-xl bg-[var(--surface-2)]"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt="" className="h-full w-full object-cover" />
               <button
@@ -266,7 +302,10 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
             </div>
           ))}
           {previews.map((url, i) => (
-            <div key={url} className="relative aspect-square overflow-hidden rounded-xl bg-[var(--surface-2)]">
+            <div
+              key={url}
+              className="relative aspect-square overflow-hidden rounded-xl bg-[var(--surface-2)]"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt="" className="h-full w-full object-cover" />
               <button
@@ -292,6 +331,44 @@ export default function ListingForm({ userId, sellerInitials, listing, listingCo
             </label>
           )}
         </div>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-[var(--foreground)]">
+          Video (optional)
+        </label>
+        <p className="mb-2 text-xs text-[var(--muted)]">
+          One short clip of the book — MP4, WebM, or MOV, up to 50MB.
+        </p>
+        {existingVideoUrl || videoPreview ? (
+          <div className="relative overflow-hidden rounded-xl bg-black">
+            <video
+              src={videoPreview ?? existingVideoUrl ?? undefined}
+              controls
+              playsInline
+              className="max-h-56 w-full"
+            />
+            <button
+              type="button"
+              onClick={clearVideo}
+              className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80"
+              aria-label="Remove video"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border)] px-4 py-8 text-[var(--muted)] transition hover:border-[var(--gold-muted)] hover:text-[var(--gold-muted)]">
+            <Video className="h-7 w-7" />
+            <span className="text-sm font-medium">Add video</span>
+            <input
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+              className="hidden"
+              onChange={(e) => onVideoSelected(e.target.files)}
+            />
+          </label>
+        )}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
