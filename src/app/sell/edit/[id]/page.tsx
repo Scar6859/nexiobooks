@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import ListingForm from "@/components/ListingForm";
+import { normalizeListing } from "@/lib/listings";
 import { createClient } from "@/lib/supabase/server";
-import type { Listing, Profile } from "@/lib/types";
+import type { Profile } from "@/lib/types";
 
 export default async function EditListingPage({
   params,
@@ -32,7 +33,7 @@ export default async function EditListingPage({
     .eq("id", user.id)
     .single();
 
-  const typedListing = listing as Listing;
+  const typedListing = normalizeListing(listing);
   const typedProfile = profile as Profile | null;
   const isOwner = typedListing.user_id === user.id;
   const isAdmin = typedProfile?.is_admin ?? false;

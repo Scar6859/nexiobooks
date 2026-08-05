@@ -1,5 +1,7 @@
 -- Run this entire file once in Supabase SQL Editor:
 -- https://supabase.com/dashboard/project/qbjicdrathvdgphzwogk/sql/new
+--
+-- Required for multi-image + video listings (adds image_urls / video_url).
 
 -- === Contact requests (Request button) ===
 create table if not exists public.listing_requests (
@@ -62,6 +64,12 @@ begin
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'listings' and column_name = 'image_url'
   ) then
+    begin
+      alter table public.listings alter column image_url drop not null;
+    exception when others then
+      null;
+    end;
+
     update public.listings
     set image_urls = array[image_url]
     where image_url is not null

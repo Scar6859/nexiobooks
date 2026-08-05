@@ -13,9 +13,11 @@ import {
 } from "@/lib/constants";
 import {
   LISTING_LIMIT_MESSAGE,
+  LISTING_SCHEMA_MESSAGE,
   MAX_IMAGES,
   MAX_VIDEO_BYTES,
   normalizeImageUrls,
+  saveListing,
   uploadListingImages,
   uploadListingVideo,
 } from "@/lib/listings";
@@ -29,6 +31,26 @@ type ListingFormProps = {
   listing?: Listing;
   listingCount?: number;
 };
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (err && typeof err === "object") {
+    const e = err as {
+      message?: unknown;
+      code?: unknown;
+      details?: unknown;
+      hint?: unknown;
+    };
+    const parts = [e.message, e.details, e.hint, e.code]
+      .filter((v): v is string => typeof v === "string" && v.length > 0);
+    if (parts.length > 0) return parts.join(" — ");
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return "Something went wrong";
+  }
+}
 
 export default function ListingForm({
   userId,
@@ -121,6 +143,10 @@ export default function ListingForm({
       listingType === "donate" ? null : priceRaw ? Number(priceRaw) : null;
 
     try {
+      if (!isEdit && listingCount >= MAX_LISTINGS_PER_USER) {
+        throw new Error(LISTING_LIMIT_MESSAGE);
+      }
+
       const uploaded = await uploadListingImages(supabase, userId, newFiles);
       const image_urls = [...existingUrls, ...uploaded].slice(0, MAX_IMAGES);
 
@@ -129,50 +155,40 @@ export default function ListingForm({
         video_url = await uploadListingVideo(supabase, userId, videoFile);
       }
 
-      const payload = {
-        title,
-        topic,
-        condition,
-        listing_type: listingType,
-        price,
-        location,
-        note: note || null,
-        image_urls,
-        video_url,
-        seller_initials: sellerInitials,
-      };
+      const videoChanged =
+        Boolean(videoFile) || existingVideoUrl !== (listing?.video_url ?? null);
 
-      if (isEdit && listing) {
-        const { error: updateError } = await supabase
-          .from("listings")
-          .update(payload)
-          .eq("id", listing.id);
+      await saveListing(
+        supabase,
+        {
+          userId,
+          title,
+          topic,
+          condition,
+          listing_type: listingType,
+          price,
+          location,
+          note: note || null,
+          image_urls,
+          video_url,
+          seller_initials: sellerInitials,
+          includeVideo: videoChanged,
+        },
+        isEdit && listing ? listing.id : undefined,
+      );
 
-        if (updateError) throw updateError;
-        router.push("/my-listings");
-      } else {
-        if (listingCount >= MAX_LISTINGS_PER_USER) {
-          throw new Error(LISTING_LIMIT_MESSAGE);
-        }
-
-        const { error: insertError } = await supabase.from("listings").insert({
-          user_id: userId,
-          ...payload,
-        });
-
-        if (insertError) throw insertError;
-        router.push("/buy");
-      }
-
+      router.push(isEdit ? "/my-listings" : "/buy");
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Something went wrong";
+      const message = getErrorMessage(err);
       setError(
         message.includes("Listing limit") || message.includes("listing limit")
           ? LISTING_LIMIT_MESSAGE
-          : message.includes("video_url")
-            ? "Database is missing the video column. Run the video migration SQL in Supabase, then try again."
-            : message,
+          : /image_urls|video_url|schema cache|missing listing columns/i.test(
+                message,
+              )
+            ? LISTING_SCHEMA_MESSAGE
+            : message || "Something went wrong",
       );
       setLoading(false);
     }

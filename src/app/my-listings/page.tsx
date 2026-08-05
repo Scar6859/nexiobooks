@@ -4,8 +4,8 @@ import BookCard from "@/components/BookCard";
 import IncomingRequests from "@/components/IncomingRequests";
 import { createClient } from "@/lib/supabase/server";
 import { MAX_LISTINGS_PER_USER } from "@/lib/constants";
-import { isListingLimitReached } from "@/lib/listings";
-import type { Listing, ListingRequestWithBuyer, Profile } from "@/lib/types";
+import { isListingLimitReached, normalizeListings } from "@/lib/listings";
+import type { ListingRequestWithBuyer, Profile } from "@/lib/types";
 
 export default async function MyListingsPage() {
   const supabase = await createClient();
@@ -21,7 +21,7 @@ export default async function MyListingsPage() {
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   const { data: listings } = await supabase
     .from("listings")
@@ -29,32 +29,37 @@ export default async function MyListingsPage() {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  const listingIds = (listings as Listing[] | null)?.map((l) => l.id) ?? [];
+  const typedListings = normalizeListings(listings);
+  const listingIds = typedListings.map((l) => l.id);
 
   let requests: ListingRequestWithBuyer[] = [];
   if (listingIds.length > 0) {
-    const { data: rawRequests } = await supabase
+    const { data: rawRequests, error: requestsError } = await supabase
       .from("listing_requests")
       .select("*, listings(title)")
       .in("listing_id", listingIds)
       .order("created_at", { ascending: false });
 
-    const buyerIds = [...new Set((rawRequests ?? []).map((r) => r.buyer_id))];
-    const { data: buyers } = buyerIds.length
-      ? await supabase.from("profiles").select("id, full_name, school, initials").in("id", buyerIds)
-      : { data: [] };
+    if (!requestsError && rawRequests) {
+      const buyerIds = [...new Set(rawRequests.map((r) => r.buyer_id))];
+      const { data: buyers } = buyerIds.length
+        ? await supabase
+            .from("profiles")
+            .select("id, full_name, school, initials")
+            .in("id", buyerIds)
+        : { data: [] };
 
-    const buyerMap = new Map((buyers ?? []).map((b) => [b.id, b]));
+      const buyerMap = new Map((buyers ?? []).map((b) => [b.id, b]));
 
-    requests = (rawRequests ?? []).map((r) => ({
-      ...r,
-      buyer: buyerMap.get(r.buyer_id) ?? null,
-      listing: r.listings as { title: string } | null,
-    }));
+      requests = rawRequests.map((r) => ({
+        ...r,
+        buyer: buyerMap.get(r.buyer_id) ?? null,
+        listing: r.listings as { title: string } | null,
+      }));
+    }
   }
 
   const typedProfile = profile as Profile | null;
-  const typedListings = (listings as Listing[]) ?? [];
   const atLimit = isListingLimitReached(typedListings.length);
 
   return (

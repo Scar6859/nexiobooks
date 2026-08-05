@@ -1,7 +1,10 @@
 import BookBrowse from "@/components/BookBrowse";
-import { attachSellers, fetchSellerProfiles } from "@/lib/listings";
+import {
+  attachSellers,
+  fetchSellerProfiles,
+  normalizeListings,
+} from "@/lib/listings";
 import { createClient } from "@/lib/supabase/server";
-import type { Listing } from "@/lib/types";
 
 export default async function BuyPage({
   searchParams,
@@ -19,7 +22,7 @@ export default async function BuyPage({
     .select("*")
     .order("created_at", { ascending: false });
 
-  const listings = (data as Listing[]) ?? [];
+  const listings = normalizeListings(data);
   const sellerProfiles = await fetchSellerProfiles(supabase, listings);
   const listingsWithSellers = attachSellers(listings, sellerProfiles);
 
@@ -29,18 +32,25 @@ export default async function BuyPage({
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("is_admin")
+      .select("*")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
-    isAdmin = profile?.is_admin ?? false;
+    isAdmin = Boolean(
+      profile &&
+        typeof profile === "object" &&
+        "is_admin" in profile &&
+        (profile as { is_admin?: boolean }).is_admin,
+    );
 
-    const { data: requests } = await supabase
+    const { data: requests, error: requestsError } = await supabase
       .from("listing_requests")
       .select("listing_id")
       .eq("buyer_id", user.id);
 
-    requestedListingIds = requests?.map((r) => r.listing_id) ?? [];
+    if (!requestsError) {
+      requestedListingIds = requests?.map((r) => r.listing_id) ?? [];
+    }
   }
 
   return (

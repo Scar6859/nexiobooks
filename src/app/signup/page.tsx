@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   DUPLICATE_EMAIL_MESSAGE,
   getSignupErrorMessage,
+  isAdminEmail,
   isDuplicateSignup,
   normalizeEmail,
 } from "@/lib/auth";
@@ -37,7 +38,7 @@ function SignupForm() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/confirmed")}`,
       },
     });
 
@@ -61,13 +62,29 @@ function SignupForm() {
         .slice(0, 2)
         .toUpperCase();
 
-      await supabase.from("profiles").upsert({
+      const profilePayload: {
+        id: string;
+        full_name: string;
+        school: string;
+        initials: string;
+        is_admin?: boolean;
+      } = {
         id: data.user.id,
         full_name: fullName,
         school,
         initials,
-        is_admin: email === "oscarshao28@gmail.com",
-      });
+      };
+      if (isAdminEmail(email)) profilePayload.is_admin = true;
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert(profilePayload);
+
+      // Older DBs may not have is_admin yet — still save the profile.
+      if (profileError && profilePayload.is_admin) {
+        delete profilePayload.is_admin;
+        await supabase.from("profiles").upsert(profilePayload);
+      }
     }
 
     if (data.user && !data.session) {

@@ -6,10 +6,150 @@ const MAX_IMAGES = 4;
 
 export const LISTING_LIMIT_MESSAGE = `You can list up to ${MAX_LISTINGS_PER_USER} books. Remove an existing listing to add another.`;
 
+export const LISTING_SCHEMA_MESSAGE =
+  "Your database is missing listing columns. Open supabase/fix-live-schema.sql in the Supabase SQL Editor for project qbjicdrathvdgphzwogk, run it, then try again.";
+
+type ListingRow = Record<string, unknown> & {
+  image_url?: string | null;
+  image_urls?: string[] | null;
+  video_url?: string | null;
+};
+
 export function normalizeImageUrls(
   urls: string[] | null | undefined,
 ): string[] {
   return (urls ?? []).filter(Boolean).slice(0, MAX_IMAGES);
+}
+
+/** Map legacy `image_url` rows onto the modern Listing shape. */
+export function normalizeListing(row: ListingRow): Listing {
+  const fromArray = normalizeImageUrls(row.image_urls);
+  const image_urls =
+    fromArray.length > 0
+      ? fromArray
+      : normalizeImageUrls(row.image_url ? [row.image_url] : []);
+
+  return {
+    ...(row as unknown as Listing),
+    image_urls,
+    video_url: (row.video_url as string | null | undefined) ?? null,
+  };
+}
+
+export function normalizeListings(rows: ListingRow[] | null | undefined): Listing[] {
+  return (rows ?? []).map(normalizeListing);
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (err && typeof err === "object" && "message" in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return "";
+}
+
+export function isMissingListingColumnError(err: unknown): boolean {
+  const message = getErrorMessage(err);
+  return /image_urls|video_url|schema cache|column .* does not exist/i.test(
+    message,
+  );
+}
+
+type SaveListingInput = {
+  userId?: string;
+  title: string;
+  topic: string;
+  condition: string;
+  listing_type: "sell" | "donate";
+  price: number | null;
+  location: string;
+  note: string | null;
+  image_urls: string[];
+  video_url?: string | null;
+  seller_initials: string;
+  includeVideo: boolean;
+};
+
+async function writeListing(
+  supabase: SupabaseClient,
+  row: Record<string, unknown>,
+  existingId?: string,
+) {
+  if (existingId) {
+    return supabase.from("listings").update(row).eq("id", existingId);
+  }
+  return supabase.from("listings").insert(row);
+}
+
+/** Insert/update with modern columns, falling back to legacy `image_url`. */
+export async function saveListing(
+  supabase: SupabaseClient,
+  input: SaveListingInput,
+  existingId?: string,
+): Promise<void> {
+  const image_urls = normalizeImageUrls(input.image_urls);
+  const base = {
+    title: input.title,
+    topic: input.topic,
+    condition: input.condition,
+    listing_type: input.listing_type,
+    price: input.price,
+    location: input.location,
+    note: input.note,
+    seller_initials: input.seller_initials,
+    ...(existingId ? {} : { user_id: input.userId }),
+  };
+
+  const modern: Record<string, unknown> = {
+    ...base,
+    image_urls,
+  };
+  if (input.includeVideo) {
+    modern.video_url = input.video_url ?? null;
+  }
+
+  const modernResult = await writeListing(supabase, modern, existingId);
+  if (!modernResult.error) return;
+
+  if (!isMissingListingColumnError(modernResult.error)) {
+    throw modernResult.error;
+  }
+
+  if (input.includeVideo && input.video_url) {
+    throw new Error(LISTING_SCHEMA_MESSAGE);
+  }
+
+  // Legacy schema: singular image_url (+ optional book_type), no image_urls/video_url.
+  const legacy: Record<string, unknown> = {
+    ...base,
+    image_url: image_urls[0] ?? "",
+  };
+
+  let legacyResult = await writeListing(supabase, legacy, existingId);
+  if (
+    legacyResult.error &&
+    /book_type/i.test(getErrorMessage(legacyResult.error))
+  ) {
+    legacyResult = await writeListing(
+      supabase,
+      { ...legacy, book_type: input.topic },
+      existingId,
+    );
+  }
+
+  if (legacyResult.error) {
+    const message = getErrorMessage(legacyResult.error);
+    if (/row-level security|42501/i.test(message)) {
+      throw new Error(
+        "Could not save listing (permission denied). Make sure you are logged in, then run supabase/fix-live-schema.sql in the Supabase SQL Editor.",
+      );
+    }
+    if (isMissingListingColumnError(legacyResult.error)) {
+      throw new Error(LISTING_SCHEMA_MESSAGE);
+    }
+    throw legacyResult.error;
+  }
 }
 
 export function attachSellers(
@@ -52,7 +192,10 @@ export async function getUserListingCount(
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId);
 
-  if (error) throw error;
+  if (error) {
+    console.error("getUserListingCount", error);
+    return 0;
+  }
   return count ?? 0;
 }
 

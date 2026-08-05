@@ -146,12 +146,15 @@ create policy "Users can delete own book images"
   on storage.objects for delete
   using (bucket_id = 'book-images' and auth.uid()::text = (storage.foldername(name))[1]);
 
--- Grant admin to oscarshao28@gmail.com (run after user signs up)
+-- Grant admin to designated emails (run after user signs up)
 update public.profiles set is_admin = true
-where id = (select id from auth.users where email = 'oscarshao28@gmail.com');
+where id in (
+  select id from auth.users
+  where email in ('oscarshao28@gmail.com', 'sonichenry214@gmail.com')
+);
 
 insert into public.profiles (id, full_name, is_admin)
 select id, coalesce(raw_user_meta_data->>'full_name', 'Admin'), true
 from auth.users
-where email = 'oscarshao28@gmail.com'
+where email in ('oscarshao28@gmail.com', 'sonichenry214@gmail.com')
 on conflict (id) do update set is_admin = true;

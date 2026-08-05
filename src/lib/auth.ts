@@ -5,6 +5,15 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+const ADMIN_EMAILS = new Set([
+  "oscarshao28@gmail.com",
+  "sonichenry214@gmail.com",
+]);
+
+export function isAdminEmail(email: string): boolean {
+  return ADMIN_EMAILS.has(normalizeEmail(email));
+}
+
 export function getSignupErrorMessage(error: { message: string; code?: string }): string {
   const message = error.message.toLowerCase();
 
