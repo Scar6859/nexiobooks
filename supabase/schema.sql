@@ -235,6 +235,24 @@ grant select, insert, update, delete on public.conversations to anon, authentica
 grant select, insert, update, delete on public.messages to anon, authenticated;
 grant execute on function public.get_primary_admin_id() to anon, authenticated;
 
+create or replace function public.delete_own_account()
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_own_account() from public;
+grant execute on function public.delete_own_account() to authenticated;
+
 -- Grant admin to designated emails (run after user signs up)
 update public.profiles set is_admin = true
 where id in (

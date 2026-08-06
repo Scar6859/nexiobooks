@@ -43,6 +43,11 @@ export default function ProfileForm({
   const [passwordErr, setPasswordErr] = useState<string | null>(null);
   const [savingPassword, setSavingPassword] = useState(false);
 
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteErr, setDeleteErr] = useState<string | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
   async function onAvatarSelected(files: FileList | null) {
     const file = files?.[0];
     if (!file) return;
@@ -179,6 +184,42 @@ export default function ProfileForm({
     setConfirmPassword("");
     setPasswordMsg("Password updated.");
     setSavingPassword(false);
+  }
+
+  async function deleteAccount(e: React.FormEvent) {
+    e.preventDefault();
+    setDeleteErr(null);
+
+    if (deleteConfirm.trim().toUpperCase() !== "DELETE") {
+      setDeleteErr("Type DELETE to confirm.");
+      return;
+    }
+
+    setDeletingAccount(true);
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password: deletePassword,
+    });
+    if (signInError) {
+      setDeleteErr("Password is incorrect.");
+      setDeletingAccount(false);
+      return;
+    }
+
+    const { error } = await supabase.rpc("delete_own_account");
+    if (error) {
+      setDeleteErr(
+        /function .* does not exist|PGRST202/i.test(error.message)
+          ? "Account deletion isn't set up yet. Run supabase/fix-live-schema.sql in Supabase, then try again."
+          : error.message,
+      );
+      setDeletingAccount(false);
+      return;
+    }
+
+    await supabase.auth.signOut();
+    window.location.href = "/";
   }
 
   return (
@@ -331,6 +372,39 @@ export default function ProfileForm({
             className="btn-navy px-5 py-2.5 text-sm disabled:opacity-60"
           >
             {savingPassword ? "Updating..." : "Update password"}
+          </button>
+        </form>
+      </section>
+
+      <section className="rounded-2xl border border-red-200 bg-[var(--surface)] p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-red-700">Delete account</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Permanently delete your account, listings, requests, and messages.
+          This cannot be undone.
+        </p>
+        <form onSubmit={deleteAccount} className="mt-4 space-y-3">
+          <input
+            type="password"
+            value={deletePassword}
+            onChange={(e) => setDeletePassword(e.target.value)}
+            required
+            placeholder="Current password"
+            className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-red-400"
+          />
+          <input
+            value={deleteConfirm}
+            onChange={(e) => setDeleteConfirm(e.target.value)}
+            required
+            placeholder='Type DELETE to confirm'
+            className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-red-400"
+          />
+          {deleteErr && <p className="text-sm text-red-600">{deleteErr}</p>}
+          <button
+            type="submit"
+            disabled={deletingAccount}
+            className="rounded-full bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+          >
+            {deletingAccount ? "Deleting..." : "Delete account"}
           </button>
         </form>
       </section>
