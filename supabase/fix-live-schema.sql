@@ -280,6 +280,15 @@ create policy "Participants can delete conversations"
     or public.is_admin()
   );
 
+-- Live message updates in the chat UI
+do $$
+begin
+  alter publication supabase_realtime add table public.messages;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end $$;
+
 drop policy if exists "Participants and admins can view messages" on public.messages;
 create policy "Participants and admins can view messages"
   on public.messages for select

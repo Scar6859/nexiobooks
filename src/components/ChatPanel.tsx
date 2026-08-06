@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { deleteEmptyConversation } from "@/lib/messaging";
 import type { Message } from "@/lib/types";
@@ -13,6 +13,19 @@ type Peer = {
   avatar_url: string | null;
 };
 
+function mergeMessages(prev: Message[], incoming: Message[]): Message[] {
+  const map = new Map<string, Message>();
+  for (const m of prev) map.set(m.id, m);
+  for (const m of incoming) {
+    // Prefer real rows over optimistic temp ids with the same body/time if needed.
+    map.set(m.id, m);
+  }
+  return [...map.values()].sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+}
+
 export default function ChatPanel({
   conversationId,
   currentUserId,
@@ -24,7 +37,7 @@ export default function ChatPanel({
   peer: Peer;
   onEmptyDiscard?: (conversationId: string) => void;
 }) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState("");
@@ -41,6 +54,7 @@ export default function ChatPanel({
     setLoading(true);
     setMessages([]);
     setError(null);
+    setBody("");
 
     async function load() {
       const { data, error: loadError } = await supabase
@@ -76,18 +90,35 @@ export default function ChatPanel({
         (payload) => {
           const row = payload.new as Message;
           hadMessagesRef.current = true;
-          setMessages((prev) =>
-            prev.some((m) => m.id === row.id) ? prev : [...prev, row],
-          );
+          setMessages((prev) => mergeMessages(prev, [row]));
         },
       )
       .subscribe();
 
+    // Fallback when Realtime isn't enabled on the project yet.
+    const poll = window.setInterval(() => {
+      void (async () => {
+        const { data } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("conversation_id", conversationId)
+          .order("created_at", { ascending: true });
+        if (cancelled || !data) return;
+        const rows = data as Message[];
+        if (rows.length > 0) hadMessagesRef.current = true;
+        setMessages((prev) => {
+          // Keep optimistic temps that aren't in the server list yet.
+          const temps = prev.filter((m) => m.id.startsWith("temp-"));
+          return mergeMessages(rows, temps);
+        });
+      })();
+    }, 2500);
+
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      window.clearInterval(poll);
+      void supabase.removeChannel(channel);
 
-      // Drop chats that were opened but never used.
       if (!hadMessagesRef.current) {
         const id = conversationId;
         void deleteEmptyConversation(supabase, id).then((deleted) => {
@@ -104,7 +135,20 @@ export default function ChatPanel({
   async function send(e: React.FormEvent) {
     e.preventDefault();
     const text = body.trim();
-    if (!text) return;
+    if (!text || sending) return;
+
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimistic: Message = {
+      id: tempId,
+      conversation_id: conversationId,
+      sender_id: currentUserId,
+      body: text,
+      created_at: new Date().toISOString(),
+    };
+
+    hadMessagesRef.current = true;
+    setMessages((prev) => mergeMessages(prev, [optimistic]));
+    setBody("");
     setSending(true);
     setError(null);
 
@@ -119,18 +163,22 @@ export default function ChatPanel({
       .single();
 
     if (sendError) {
+      setMessages((prev) => {
+        const next = prev.filter((m) => m.id !== tempId);
+        hadMessagesRef.current = next.some((m) => !m.id.startsWith("temp-"));
+        return next;
+      });
       setError(sendError.message);
       setSending(false);
       return;
     }
 
     if (data) {
-      hadMessagesRef.current = true;
-      setMessages((prev) =>
-        prev.some((m) => m.id === data.id) ? prev : [...prev, data as Message],
-      );
+      setMessages((prev) => {
+        const withoutTemp = prev.filter((m) => m.id !== tempId);
+        return mergeMessages(withoutTemp, [data as Message]);
+      });
     }
-    setBody("");
     setSending(false);
   }
 
