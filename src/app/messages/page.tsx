@@ -145,6 +145,18 @@ export default async function MessagesPage({
     }
   }
 
+  // Keep only chats that have messages (or the one currently being opened).
+  // Clean up abandoned empty conversations in the background.
+  const visibleConvRows = convRows.filter(
+    (c) => lastByConv[c.id] || c.id === focusId,
+  );
+  const emptyIds = convRows
+    .filter((c) => !lastByConv[c.id] && c.id !== focusId)
+    .map((c) => c.id);
+  if (emptyIds.length > 0) {
+    await supabase.from("conversations").delete().in("id", emptyIds);
+  }
+
   let allUsers: Pick<Profile, "id" | "full_name" | "initials" | "avatar_url">[] =
     [];
   if (isAdmin) {
@@ -174,7 +186,7 @@ export default async function MessagesPage({
   }
 
   const rows = buildConversationRows(
-    convRows,
+    visibleConvRows,
     user.id,
     peers ?? [],
     lastByConv,

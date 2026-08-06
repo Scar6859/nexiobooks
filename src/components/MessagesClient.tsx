@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
+  deleteEmptyConversation,
   getOrCreateConversation,
   getPrimaryAdminId,
   type ConversationRow,
@@ -33,6 +34,7 @@ export default function MessagesClient({
     () => allUsers.filter((u) => u.id !== currentUserId),
     [allUsers, currentUserId],
   );
+  const [rows, setRows] = useState(conversations);
   const [activeId, setActiveId] = useState<string | null>(
     initialConversationId ?? conversations[0]?.id ?? null,
   );
@@ -40,14 +42,53 @@ export default function MessagesClient({
   const [error, setError] = useState<string | null>(null);
   const [pickUserId, setPickUserId] = useState(messageableUsers[0]?.id ?? "");
 
+  useEffect(() => {
+    setRows(conversations);
+  }, [conversations]);
+
+  useEffect(() => {
+    if (
+      initialConversationId &&
+      conversations.some((c) => c.id === initialConversationId)
+    ) {
+      setActiveId(initialConversationId);
+    }
+  }, [initialConversationId, conversations]);
+
   const active = useMemo(
-    () => conversations.find((c) => c.id === activeId) ?? null,
-    [conversations, activeId],
+    () => rows.find((c) => c.id === activeId) ?? null,
+    [rows, activeId],
   );
+
+  async function discardEmpty(conversationId: string) {
+    setRows((prev) => prev.filter((c) => c.id !== conversationId));
+    setActiveId((current) => {
+      if (current !== conversationId) return current;
+      return null;
+    });
+    router.replace("/messages");
+    router.refresh();
+  }
+
+  async function selectConversation(nextId: string | null) {
+    if (activeId && activeId !== nextId) {
+      const deleted = await deleteEmptyConversation(supabase, activeId);
+      if (deleted) {
+        setRows((prev) => prev.filter((c) => c.id !== activeId));
+      }
+    }
+    setActiveId(nextId);
+    router.replace(nextId ? `/messages?c=${nextId}` : "/messages");
+    if (nextId) router.refresh();
+  }
 
   async function startWithAdmin() {
     setStarting(true);
     setError(null);
+    if (activeId) {
+      const deleted = await deleteEmptyConversation(supabase, activeId);
+      if (deleted) setRows((prev) => prev.filter((c) => c.id !== activeId));
+    }
     const adminId = await getPrimaryAdminId(supabase);
     if (!adminId) {
       setError("No administrator is available to message yet.");
@@ -69,6 +110,7 @@ export default function MessagesClient({
       setStarting(false);
       return;
     }
+    setActiveId(result.id);
     router.push(`/messages?c=${result.id}`);
     router.refresh();
     setStarting(false);
@@ -81,6 +123,10 @@ export default function MessagesClient({
     }
     setStarting(true);
     setError(null);
+    if (activeId) {
+      const deleted = await deleteEmptyConversation(supabase, activeId);
+      if (deleted) setRows((prev) => prev.filter((c) => c.id !== activeId));
+    }
     const result = await getOrCreateConversation(
       supabase,
       currentUserId,
@@ -146,20 +192,19 @@ export default function MessagesClient({
         )}
 
         <div className="space-y-1">
-          {conversations.length === 0 ? (
+          {rows.length === 0 ? (
             <p className="px-2 py-4 text-xs text-[var(--muted)]">
               No conversations yet.
             </p>
           ) : (
-            conversations.map((c) => {
+            rows.map((c) => {
               const selected = c.id === activeId;
               return (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => {
-                    setActiveId(c.id);
-                    router.replace(`/messages?c=${c.id}`);
+                    void selectConversation(c.id);
                   }}
                   className={`flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left transition ${
                     selected
@@ -177,13 +222,21 @@ export default function MessagesClient({
                     <div className="truncate text-sm font-semibold">
                       {c.peer.full_name ?? "User"}
                     </div>
-                    {c.preview && (
+                    {c.preview ? (
                       <div
                         className={`truncate text-xs ${
                           selected ? "text-white/70" : "text-[var(--muted)]"
                         }`}
                       >
                         {c.preview}
+                      </div>
+                    ) : (
+                      <div
+                        className={`truncate text-xs ${
+                          selected ? "text-white/70" : "text-[var(--muted)]"
+                        }`}
+                      >
+                        New chat
                       </div>
                     )}
                   </div>
@@ -201,6 +254,7 @@ export default function MessagesClient({
             conversationId={active.id}
             currentUserId={currentUserId}
             peer={active.peer}
+            onEmptyDiscard={discardEmpty}
           />
         ) : (
           <div className="flex h-[min(32rem,70vh)] items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-8 text-center text-sm text-[var(--muted)]">

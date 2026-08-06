@@ -110,3 +110,23 @@ export function isMissingMessagingSchemaError(error: {
     message,
   );
 }
+
+/** Delete a conversation only when it has no messages. */
+export async function deleteEmptyConversation(
+  supabase: SupabaseClient,
+  conversationId: string,
+): Promise<boolean> {
+  const { count, error: countError } = await supabase
+    .from("messages")
+    .select("*", { count: "exact", head: true })
+    .eq("conversation_id", conversationId);
+
+  if (countError || (count ?? 0) > 0) return false;
+
+  const { error } = await supabase
+    .from("conversations")
+    .delete()
+    .eq("id", conversationId);
+
+  return !error;
+}

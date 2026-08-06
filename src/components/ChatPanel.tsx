@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { deleteEmptyConversation } from "@/lib/messaging";
 import type { Message } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 
@@ -16,10 +17,12 @@ export default function ChatPanel({
   conversationId,
   currentUserId,
   peer,
+  onEmptyDiscard,
 }: {
   conversationId: string;
   currentUserId: string;
   peer: Peer;
+  onEmptyDiscard?: (conversationId: string) => void;
 }) {
   const supabase = createClient();
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -28,9 +31,16 @@ export default function ChatPanel({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hadMessagesRef = useRef(false);
+  const onEmptyDiscardRef = useRef(onEmptyDiscard);
+  onEmptyDiscardRef.current = onEmptyDiscard;
 
   useEffect(() => {
     let cancelled = false;
+    hadMessagesRef.current = false;
+    setLoading(true);
+    setMessages([]);
+    setError(null);
 
     async function load() {
       const { data, error: loadError } = await supabase
@@ -45,7 +55,9 @@ export default function ChatPanel({
         setLoading(false);
         return;
       }
-      setMessages((data as Message[]) ?? []);
+      const rows = (data as Message[]) ?? [];
+      hadMessagesRef.current = rows.length > 0;
+      setMessages(rows);
       setLoading(false);
     }
 
@@ -63,6 +75,7 @@ export default function ChatPanel({
         },
         (payload) => {
           const row = payload.new as Message;
+          hadMessagesRef.current = true;
           setMessages((prev) =>
             prev.some((m) => m.id === row.id) ? prev : [...prev, row],
           );
@@ -73,6 +86,14 @@ export default function ChatPanel({
     return () => {
       cancelled = true;
       supabase.removeChannel(channel);
+
+      // Drop chats that were opened but never used.
+      if (!hadMessagesRef.current) {
+        const id = conversationId;
+        void deleteEmptyConversation(supabase, id).then((deleted) => {
+          if (deleted) onEmptyDiscardRef.current?.(id);
+        });
+      }
     };
   }, [conversationId, supabase]);
 
@@ -104,6 +125,7 @@ export default function ChatPanel({
     }
 
     if (data) {
+      hadMessagesRef.current = true;
       setMessages((prev) =>
         prev.some((m) => m.id === data.id) ? prev : [...prev, data as Message],
       );
@@ -134,7 +156,8 @@ export default function ChatPanel({
           <p className="text-sm text-[var(--muted)]">Loading messages…</p>
         ) : messages.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">
-            No messages yet. Say hello to get started.
+            No messages yet. Say hello to get started. Leave without sending and
+            this chat won&apos;t be saved.
           </p>
         ) : (
           messages.map((m) => {
