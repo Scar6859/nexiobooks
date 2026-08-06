@@ -1,4 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Conversation, Profile } from "@/lib/types";
+
+export type ConversationRow = Conversation & {
+  peer: Pick<Profile, "id" | "full_name" | "initials" | "avatar_url">;
+  preview?: string | null;
+};
 
 export function orderedPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
@@ -73,4 +79,34 @@ export function otherParticipantId(
   return conversation.participant_one === userId
     ? conversation.participant_two
     : conversation.participant_one;
+}
+
+export function buildConversationRows(
+  conversations: Conversation[],
+  currentUserId: string,
+  profiles: Pick<Profile, "id" | "full_name" | "initials" | "avatar_url">[],
+  lastByConv: Record<string, string>,
+): ConversationRow[] {
+  const map = new Map(profiles.map((p) => [p.id, p]));
+  return conversations.map((c) => {
+    const peerId = otherParticipantId(c, currentUserId);
+    const peer = map.get(peerId) ?? {
+      id: peerId,
+      full_name: "User",
+      initials: "?",
+      avatar_url: null,
+    };
+    return { ...c, peer, preview: lastByConv[c.id] ?? null };
+  });
+}
+
+export function isMissingMessagingSchemaError(error: {
+  message?: string;
+  code?: string;
+} | null): boolean {
+  if (!error?.message && !error?.code) return false;
+  const message = `${error.code ?? ""} ${error.message ?? ""}`;
+  return /conversations|messages|get_primary_admin_id|schema cache|PGRST205|42P01|PGRST202/i.test(
+    message,
+  );
 }

@@ -7,17 +7,12 @@ import { createClient } from "@/lib/supabase/client";
 import {
   getOrCreateConversation,
   getPrimaryAdminId,
-  otherParticipantId,
+  type ConversationRow,
 } from "@/lib/messaging";
-import type { Conversation, Profile } from "@/lib/types";
+import type { Profile } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 import ChatPanel from "@/components/ChatPanel";
 import FancySelect from "@/components/FancySelect";
-
-type ConversationRow = Conversation & {
-  peer: Pick<Profile, "id" | "full_name" | "initials" | "avatar_url">;
-  preview?: string | null;
-};
 
 export default function MessagesClient({
   currentUserId,
@@ -97,7 +92,7 @@ export default function MessagesClient({
           <h2 className="text-sm font-bold text-[var(--foreground)]">Chats</h2>
         </div>
 
-        {isAdmin && allUsers.length > 0 && (
+        {isAdmin && allUsers.length > 0 && pickUserId && (
           <div className="mb-3 space-y-2 rounded-xl bg-[var(--surface-2)] p-2">
             <FancySelect
               label="Message anyone"
@@ -214,23 +209,4 @@ export default function MessagesClient({
       </div>
     </div>
   );
-}
-
-export function buildConversationRows(
-  conversations: Conversation[],
-  currentUserId: string,
-  profiles: Pick<Profile, "id" | "full_name" | "initials" | "avatar_url">[],
-  lastByConv: Record<string, string>,
-): ConversationRow[] {
-  const map = new Map(profiles.map((p) => [p.id, p]));
-  return conversations.map((c) => {
-    const peerId = otherParticipantId(c, currentUserId);
-    const peer = map.get(peerId) ?? {
-      id: peerId,
-      full_name: "User",
-      initials: "?",
-      avatar_url: null,
-    };
-    return { ...c, peer, preview: lastByConv[c.id] ?? null };
-  });
 }

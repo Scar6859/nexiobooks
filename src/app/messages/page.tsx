@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
-import MessagesClient, {
-  buildConversationRows,
-} from "@/components/MessagesClient";
+import MessagesClient from "@/components/MessagesClient";
 import { resolveIsAdmin } from "@/lib/auth";
+import {
+  buildConversationRows,
+  isMissingMessagingSchemaError,
+} from "@/lib/messaging";
 import { createClient } from "@/lib/supabase/server";
 import type { Conversation, Profile } from "@/lib/types";
 
@@ -35,8 +37,10 @@ export default async function MessagesPage({
   // If opened from an accepted request, ensure a chat with the primary admin exists.
   let focusId = c ?? null;
   if (requestId && !isAdmin) {
-    const { data: adminId } = await supabase.rpc("get_primary_admin_id");
-    if (adminId && adminId !== user.id) {
+    const { data: adminId, error: adminError } = await supabase.rpc(
+      "get_primary_admin_id",
+    );
+    if (!isMissingMessagingSchemaError(adminError) && adminId && adminId !== user.id) {
       const [one, two] =
         user.id < adminId ? [user.id, adminId] : [adminId, user.id];
 
@@ -69,11 +73,26 @@ export default async function MessagesPage({
     }
   }
 
-  const { data: conversations } = await supabase
+  const { data: conversations, error: conversationsError } = await supabase
     .from("conversations")
     .select("*")
     .or(`participant_one.eq.${user.id},participant_two.eq.${user.id}`)
     .order("created_at", { ascending: false });
+
+  if (isMissingMessagingSchemaError(conversationsError)) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold text-[var(--foreground)]">Messages</h1>
+        <p className="mt-3 text-sm text-[var(--muted)]">
+          Messaging isn&apos;t set up on the database yet. Run{" "}
+          <code className="text-[var(--foreground)]">
+            supabase/fix-live-schema.sql
+          </code>{" "}
+          in the Supabase SQL Editor, then refresh.
+        </p>
+      </div>
+    );
+  }
 
   const convRows = (conversations as Conversation[] | null) ?? [];
   const peerIds = [
@@ -82,12 +101,31 @@ export default async function MessagesPage({
     ),
   ].filter((id) => id !== user.id);
 
-  const { data: peers } = peerIds.length
-    ? await supabase
+  // Prefer avatar_url when present; fall back if that column isn't migrated yet.
+  let peers:
+    | Pick<Profile, "id" | "full_name" | "initials" | "avatar_url">[]
+    | null = null;
+  if (peerIds.length > 0) {
+    const withAvatar = await supabase
+      .from("profiles")
+      .select("id, full_name, initials, avatar_url")
+      .in("id", peerIds);
+    if (withAvatar.error) {
+      const basic = await supabase
         .from("profiles")
-        .select("id, full_name, initials, avatar_url")
-        .in("id", peerIds)
-    : { data: [] };
+        .select("id, full_name, initials")
+        .in("id", peerIds);
+      peers = (basic.data ?? []).map((p) => ({
+        ...p,
+        avatar_url: null,
+      }));
+    } else {
+      peers = (withAvatar.data ?? []) as Pick<
+        Profile,
+        "id" | "full_name" | "initials" | "avatar_url"
+      >[];
+    }
+  }
 
   const lastByConv: Record<string, string> = {};
   if (convRows.length > 0) {
@@ -110,24 +148,33 @@ export default async function MessagesPage({
   let allUsers: Pick<Profile, "id" | "full_name" | "initials" | "avatar_url">[] =
     [];
   if (isAdmin) {
-    const { data } = await supabase
+    const withAvatar = await supabase
       .from("profiles")
       .select("id, full_name, initials, avatar_url")
       .neq("id", user.id)
       .order("full_name", { ascending: true });
-    allUsers = (data ?? []) as Pick<
-      Profile,
-      "id" | "full_name" | "initials" | "avatar_url"
-    >[];
+    if (withAvatar.error) {
+      const basic = await supabase
+        .from("profiles")
+        .select("id, full_name, initials")
+        .neq("id", user.id)
+        .order("full_name", { ascending: true });
+      allUsers = (basic.data ?? []).map((p) => ({
+        ...p,
+        avatar_url: null,
+      }));
+    } else {
+      allUsers = (withAvatar.data ?? []) as Pick<
+        Profile,
+        "id" | "full_name" | "initials" | "avatar_url"
+      >[];
+    }
   }
 
   const rows = buildConversationRows(
     convRows,
     user.id,
-    (peers ?? []) as Pick<
-      Profile,
-      "id" | "full_name" | "initials" | "avatar_url"
-    >[],
+    peers ?? [],
     lastByConv,
   );
 
