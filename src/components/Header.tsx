@@ -124,8 +124,8 @@ export default function Header() {
           : "border-[var(--header-border)] bg-[var(--header-bg)]"
       }`}
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+      <div className="mx-auto flex max-w-6xl flex-nowrap items-center justify-between gap-2 px-4 py-3 sm:gap-3">
+        <div className="flex min-w-0 shrink items-center gap-2 sm:gap-3">
           <div className="relative md:hidden" ref={menuRef}>
             <button
               type="button"
@@ -182,16 +182,16 @@ export default function Header() {
             </div>
           </div>
 
-          <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <Link href="/" className="flex min-w-0 shrink-0 items-center gap-2.5 sm:gap-3">
             <Logo size={42} />
             <div className="min-w-0 leading-tight">
               <div
-                className={`truncate text-lg font-bold tracking-wide text-[var(--header-text)] ${themeColorTransition}`}
+                className={`whitespace-nowrap text-lg font-bold tracking-wide text-[var(--header-text)] ${themeColorTransition}`}
               >
                 NEXIO<span className="text-[var(--gold)]">BOOKS</span>
               </div>
               <div
-                className={`hidden text-[10px] uppercase tracking-[0.14em] text-[var(--header-text-muted)] sm:block ${themeColorTransition}`}
+                className={`hidden whitespace-nowrap text-[10px] uppercase tracking-[0.14em] text-[var(--header-text-muted)] lg:block ${themeColorTransition}`}
               >
                 Turning old books into new opportunities
               </div>
@@ -199,7 +199,7 @@ export default function Header() {
           </Link>
         </div>
 
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav className="hidden min-w-0 shrink items-center gap-3 overflow-hidden md:flex lg:gap-5">
           {nav
             .filter((item) => !item.auth || user)
             .map((item) => {
@@ -209,7 +209,7 @@ export default function Header() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`text-sm font-medium ${themeColorTransition} ${
+                  className={`whitespace-nowrap text-sm font-medium ${themeColorTransition} ${
                     active
                       ? "text-[var(--header-nav-active)]"
                       : "text-[var(--header-nav)] hover:text-[var(--header-nav-hover)]"
@@ -221,30 +221,31 @@ export default function Header() {
             })}
         </nav>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-nowrap items-center gap-2">
           <ThemeToggle />
           {user ? (
             <>
               <Link
                 href="/profile"
-                className={`flex max-w-[11rem] items-center gap-2 rounded-full border border-[var(--header-control-border)] py-1 pl-1 pr-2.5 hover:bg-[var(--header-control-hover)] sm:max-w-[14rem] sm:pr-3 ${themeColorTransition}`}
-                title="My profile"
+                className={`flex max-w-[8.5rem] flex-nowrap items-center gap-2 rounded-full border border-[var(--header-control-border)] py-1 pl-1 pr-2.5 hover:bg-[var(--header-control-hover)] sm:max-w-[10rem] sm:pr-3 ${themeColorTransition}`}
+                title={displayName}
               >
                 <Avatar
                   name={displayName}
                   initials={profile?.initials}
                   src={profile?.avatar_url}
                   size="sm"
+                  className="shrink-0"
                 />
                 <span
-                  className={`hidden truncate text-sm font-medium text-[var(--header-text)] sm:inline ${themeColorTransition}`}
+                  className={`hidden min-w-0 truncate whitespace-nowrap text-sm font-medium text-[var(--header-text)] sm:inline ${themeColorTransition}`}
                 >
                   {displayName}
                 </span>
               </Link>
               <button
                 onClick={signOut}
-                className={`rounded-full border border-[var(--header-control-border)] px-3 py-2 text-sm font-medium text-[var(--header-text)] hover:bg-[var(--header-control-hover)] sm:px-4 ${themeColorTransition}`}
+                className={`shrink-0 whitespace-nowrap rounded-full border border-[var(--header-control-border)] px-3 py-2 text-sm font-medium text-[var(--header-text)] hover:bg-[var(--header-control-hover)] sm:px-4 ${themeColorTransition}`}
               >
                 Log out
               </button>
@@ -253,13 +254,13 @@ export default function Header() {
             <>
               <Link
                 href="/login"
-                className={`rounded-full border border-[var(--header-control-border)] px-3 py-2 text-sm font-medium text-[var(--header-text)] hover:bg-[var(--header-control-hover)] sm:px-4 ${themeColorTransition}`}
+                className={`shrink-0 whitespace-nowrap rounded-full border border-[var(--header-control-border)] px-3 py-2 text-sm font-medium text-[var(--header-text)] hover:bg-[var(--header-control-hover)] sm:px-4 ${themeColorTransition}`}
               >
                 Log in
               </Link>
               <Link
                 href="/signup"
-                className="rounded-full bg-[var(--gold)] px-3 py-2 text-sm font-semibold text-[#0a1628] transition-[background-color] duration-[250ms] ease hover:bg-[var(--gold-light)] sm:px-4"
+                className="shrink-0 whitespace-nowrap rounded-full bg-[var(--gold)] px-3 py-2 text-sm font-semibold text-[#0a1628] transition-[background-color] duration-[250ms] ease hover:bg-[var(--gold-light)] sm:px-4"
               >
                 Sign up
               </Link>
