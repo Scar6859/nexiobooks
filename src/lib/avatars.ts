@@ -16,14 +16,26 @@ export async function uploadAvatar(
   }
 
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  // Use book-images (already exists in prod). Prefer avatars bucket when present.
   const path = `${userId}/avatar-${Date.now()}.${ext}`;
+  const buckets = ["avatars", "book-images"] as const;
 
-  const { error } = await supabase.storage.from("avatars").upload(path, file, {
-    upsert: true,
-    contentType: file.type,
-  });
-  if (error) throw error;
+  let lastError: Error | null = null;
+  for (const bucket of buckets) {
+    const { error } = await supabase.storage.from(bucket).upload(path, file, {
+      upsert: true,
+      contentType: file.type,
+    });
+    if (!error) {
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      return data.publicUrl;
+    }
+    lastError = error;
+    // Only fall through when the preferred bucket is missing.
+    if (!/bucket not found|not found/i.test(error.message)) {
+      throw error;
+    }
+  }
 
-  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-  return data.publicUrl;
+  throw lastError ?? new Error("Could not upload profile photo.");
 }
