@@ -5,6 +5,8 @@ create table if not exists public.profiles (
   full_name text,
   school text,
   initials text,
+  phone text,
+  avatar_url text,
   is_admin boolean not null default false,
   created_at timestamptz default now()
 );
@@ -131,6 +133,10 @@ insert into storage.buckets (id, name, public)
 values ('book-images', 'book-images', true)
 on conflict (id) do nothing;
 
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
 create policy "Anyone can view book images"
   on storage.objects for select using (bucket_id = 'book-images');
 
@@ -145,6 +151,89 @@ create policy "Users can update own book images"
 create policy "Users can delete own book images"
   on storage.objects for delete
   using (bucket_id = 'book-images' and auth.uid()::text = (storage.foldername(name))[1]);
+
+create table if not exists public.conversations (
+  id uuid primary key default gen_random_uuid(),
+  participant_one uuid not null references auth.users(id) on delete cascade,
+  participant_two uuid not null references auth.users(id) on delete cascade,
+  listing_request_id uuid references public.listing_requests(id) on delete set null,
+  created_at timestamptz default now(),
+  constraint conversations_distinct_participants check (participant_one <> participant_two),
+  constraint conversations_ordered_pair check (participant_one < participant_two),
+  unique (participant_one, participant_two)
+);
+
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  body text not null,
+  created_at timestamptz default now()
+);
+
+alter table public.conversations enable row level security;
+alter table public.messages enable row level security;
+
+create or replace function public.is_conversation_participant(conv_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.conversations c
+    where c.id = conv_id
+      and (c.participant_one = auth.uid() or c.participant_two = auth.uid())
+  );
+$$;
+
+create or replace function public.get_primary_admin_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select id from auth.users where lower(email) = 'oscarshao28@gmail.com' limit 1;
+$$;
+
+create policy "Participants and admins can view conversations"
+  on public.conversations for select
+  using (
+    participant_one = auth.uid()
+    or participant_two = auth.uid()
+    or public.is_admin()
+  );
+
+create policy "Authenticated users can create conversations"
+  on public.conversations for insert
+  with check (
+    auth.uid() = participant_one
+    or auth.uid() = participant_two
+    or public.is_admin()
+  );
+
+create policy "Participants and admins can view messages"
+  on public.messages for select
+  using (
+    public.is_conversation_participant(conversation_id)
+    or public.is_admin()
+  );
+
+create policy "Participants can send messages"
+  on public.messages for insert
+  with check (
+    auth.uid() = sender_id
+    and (
+      public.is_conversation_participant(conversation_id)
+      or public.is_admin()
+    )
+  );
+
+grant select, insert, update, delete on public.conversations to anon, authenticated;
+grant select, insert, update, delete on public.messages to anon, authenticated;
+grant execute on function public.get_primary_admin_id() to anon, authenticated;
 
 -- Grant admin to designated emails (run after user signs up)
 update public.profiles set is_admin = true

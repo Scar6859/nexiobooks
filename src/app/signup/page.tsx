@@ -32,16 +32,24 @@ function SignupForm() {
     const password = String(form.get("password"));
     const fullName = String(form.get("full_name"));
     const school = String(form.get("school"));
+    const phone = String(form.get("phone") ?? "").trim();
+
+    if (!phone) {
+      setError("Phone number is required.");
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/confirmed")}`,
-        // Persist name/school for profile creation after email confirm (no session yet).
+        // Persist profile fields for creation after email confirm (no session yet).
         data: {
           full_name: fullName,
           school,
+          phone,
         },
       },
     });
@@ -114,6 +122,14 @@ function SignupForm() {
         required
         defaultValue={SCHOOLS[0]}
         options={SCHOOLS}
+      />
+      <input
+        name="phone"
+        type="tel"
+        required
+        placeholder="Phone number"
+        autoComplete="tel"
+        className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[var(--gold-muted)]"
       />
       <input
         name="email"

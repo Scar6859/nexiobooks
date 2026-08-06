@@ -8,6 +8,8 @@ import type { User } from "@supabase/supabase-js";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useTheme } from "@/components/ThemeProvider";
+import Avatar from "@/components/Avatar";
+import { ensureUserProfile } from "@/lib/profile";
 import { LayoutGrid, X } from "lucide-react";
 
 const nav = [
@@ -15,15 +17,23 @@ const nav = [
   { href: "/sell", label: "Sell" },
   { href: "/my-listings", label: "My Listings", auth: true },
   { href: "/my-requests", label: "My Requests", auth: true },
+  { href: "/messages", label: "Messages", auth: true },
   { href: "/about", label: "About Us" },
 ];
 
 const themeColorTransition =
   "transition-[color,border-color,background-color] duration-[250ms] ease";
 
+type HeaderProfile = {
+  full_name: string | null;
+  initials: string | null;
+  avatar_url: string | null;
+};
+
 export default function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<HeaderProfile | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -31,15 +41,41 @@ export default function Header() {
   const isHome = pathname === "/";
   const onDarkBar = theme === "dark";
 
-  const mobileNav = nav.filter((item) => !item.auth || user);
+  const mobileNav = [
+    ...nav.filter((item) => !item.auth || user),
+    ...(user ? [{ href: "/profile", label: "My Profile", auth: true }] : []),
+  ];
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    async function load(nextUser: User | null) {
+      setUser(nextUser);
+      if (!nextUser) {
+        setProfile(null);
+        return;
+      }
+      await ensureUserProfile(supabase, nextUser);
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, initials, avatar_url")
+        .eq("id", nextUser.id)
+        .maybeSingle();
+      setProfile(
+        data
+          ? {
+              full_name: data.full_name,
+              initials: data.initials,
+              avatar_url: data.avatar_url ?? null,
+            }
+          : null,
+      );
+    }
+
+    supabase.auth.getUser().then(({ data }) => load(data.user));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
+      load(session?.user ?? null);
     });
     return () => sub.subscription.unsubscribe();
-  }, [supabase.auth]);
+  }, [supabase]);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -71,6 +107,12 @@ export default function Header() {
     await supabase.auth.signOut();
     window.location.href = "/";
   }
+
+  const displayName =
+    profile?.full_name?.trim() ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "Profile";
 
   return (
     <header
@@ -183,11 +225,23 @@ export default function Header() {
           <ThemeToggle />
           {user ? (
             <>
-              <span
-                className={`hidden text-sm text-[var(--header-text-muted)] sm:inline ${themeColorTransition}`}
+              <Link
+                href="/profile"
+                className={`flex max-w-[11rem] items-center gap-2 rounded-full border border-[var(--header-control-border)] py-1 pl-1 pr-2.5 hover:bg-[var(--header-control-hover)] sm:max-w-[14rem] sm:pr-3 ${themeColorTransition}`}
+                title="My profile"
               >
-                {user.email}
-              </span>
+                <Avatar
+                  name={displayName}
+                  initials={profile?.initials}
+                  src={profile?.avatar_url}
+                  size="sm"
+                />
+                <span
+                  className={`hidden truncate text-sm font-medium text-[var(--header-text)] sm:inline ${themeColorTransition}`}
+                >
+                  {displayName}
+                </span>
+              </Link>
               <button
                 onClick={signOut}
                 className={`rounded-full border border-[var(--header-control-border)] px-3 py-2 text-sm font-medium text-[var(--header-text)] hover:bg-[var(--header-control-hover)] sm:px-4 ${themeColorTransition}`}

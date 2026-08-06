@@ -5,13 +5,19 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+export const PRIMARY_ADMIN_EMAIL = "oscarshao28@gmail.com";
+
 const ADMIN_EMAILS = new Set([
-  "oscarshao28@gmail.com",
+  PRIMARY_ADMIN_EMAIL,
   "sonichenry214@gmail.com",
 ]);
 
 export function isAdminEmail(email: string): boolean {
   return ADMIN_EMAILS.has(normalizeEmail(email));
+}
+
+export function getAdminEmails(): string[] {
+  return [...ADMIN_EMAILS];
 }
 
 /** True if profile flag is set or the signed-in email is a designated admin. */

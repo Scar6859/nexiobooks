@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import ContactAdminButton from "@/components/ContactAdminButton";
 import { createClient } from "@/lib/supabase/server";
 import type { ListingRequest } from "@/lib/types";
 
@@ -25,7 +26,8 @@ const STATUS_STYLES: Record<BuyerRequest["status"], string> = {
 
 const STATUS_HELP: Record<BuyerRequest["status"], string> = {
   pending: "Waiting for the seller to respond.",
-  accepted: "The seller accepted your request. Arrange pickup with them.",
+  accepted:
+    "Accepted! Message a NexioBooks admin — books go to us first, then we deliver them to you.",
   declined: "The seller declined this request.",
   completed: "This request was marked completed.",
 };
@@ -165,6 +167,12 @@ export default async function MyRequestsPage() {
                 <p className="mt-2 text-sm text-[var(--muted)]">
                   {STATUS_HELP[req.status]}
                 </p>
+
+                {(req.status === "accepted" || req.status === "completed") && (
+                  <div className="mt-4">
+                    <ContactAdminButton requestId={req.id} />
+                  </div>
+                )}
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--muted)]">
                   <span>
