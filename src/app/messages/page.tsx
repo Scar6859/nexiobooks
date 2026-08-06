@@ -169,6 +169,8 @@ export default async function MessagesPage({
         "id" | "full_name" | "initials" | "avatar_url"
       >[];
     }
+    // Never let an admin pick themselves in the "message anyone" list.
+    allUsers = allUsers.filter((u) => u.id !== user.id);
   }
 
   const rows = buildConversationRows(

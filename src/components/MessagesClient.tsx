@@ -29,12 +29,16 @@ export default function MessagesClient({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const messageableUsers = useMemo(
+    () => allUsers.filter((u) => u.id !== currentUserId),
+    [allUsers, currentUserId],
+  );
   const [activeId, setActiveId] = useState<string | null>(
     initialConversationId ?? conversations[0]?.id ?? null,
   );
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pickUserId, setPickUserId] = useState(allUsers[0]?.id ?? "");
+  const [pickUserId, setPickUserId] = useState(messageableUsers[0]?.id ?? "");
 
   const active = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? null,
@@ -47,6 +51,11 @@ export default function MessagesClient({
     const adminId = await getPrimaryAdminId(supabase);
     if (!adminId) {
       setError("No administrator is available to message yet.");
+      setStarting(false);
+      return;
+    }
+    if (adminId === currentUserId) {
+      setError("You can't message yourself.");
       setStarting(false);
       return;
     }
@@ -66,7 +75,10 @@ export default function MessagesClient({
   }
 
   async function startWithUser() {
-    if (!pickUserId) return;
+    if (!pickUserId || pickUserId === currentUserId) {
+      setError("You can't message yourself.");
+      return;
+    }
     setStarting(true);
     setError(null);
     const result = await getOrCreateConversation(
@@ -92,20 +104,28 @@ export default function MessagesClient({
           <h2 className="text-sm font-bold text-[var(--foreground)]">Chats</h2>
         </div>
 
-        {isAdmin && allUsers.length > 0 && pickUserId && (
+        {isAdmin && messageableUsers.length > 0 && (
           <div className="mb-3 space-y-2 rounded-xl bg-[var(--surface-2)] p-2">
             <FancySelect
               label="Message anyone"
-              value={pickUserId}
+              value={
+                messageableUsers.some((u) => u.id === pickUserId)
+                  ? pickUserId
+                  : messageableUsers[0].id
+              }
               onChange={setPickUserId}
-              options={allUsers.map((u) => ({
+              options={messageableUsers.map((u) => ({
                 value: u.id,
                 label: u.full_name || u.initials || "User",
               }))}
             />
             <button
               type="button"
-              disabled={starting || !pickUserId}
+              disabled={
+                starting ||
+                !pickUserId ||
+                pickUserId === currentUserId
+              }
               onClick={startWithUser}
               className="btn-navy w-full py-2 text-xs disabled:opacity-60"
             >

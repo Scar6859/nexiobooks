@@ -32,7 +32,7 @@ export async function getOrCreateConversation(
   listingRequestId?: string | null,
 ): Promise<{ id: string } | { error: string }> {
   if (userA === userB) {
-    return { error: "Cannot start a conversation with yourself." };
+    return { error: "You can't message yourself." };
   }
 
   const [participant_one, participant_two] = orderedPair(userA, userB);

@@ -5,6 +5,12 @@
 alter table public.profiles
   add column if not exists is_admin boolean not null default false;
 
+alter table public.profiles
+  add column if not exists phone text;
+
+alter table public.profiles
+  add column if not exists avatar_url text;
+
 alter table public.listings
   add column if not exists image_urls text[] not null default '{}';
 
@@ -167,10 +173,7 @@ from auth.users
 where email in ('oscarshao28@gmail.com', 'sonichenry214@gmail.com')
 on conflict (id) do update set is_admin = true;
 
--- Profile phone / avatar + messaging
-alter table public.profiles add column if not exists phone text;
-alter table public.profiles add column if not exists avatar_url text;
-
+-- Avatar storage + messaging
 insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)
 on conflict (id) do nothing;

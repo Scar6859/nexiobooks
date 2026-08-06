@@ -36,6 +36,11 @@ export default function ContactAdminButton({
       setLoading(false);
       return;
     }
+    if (adminId === user.id) {
+      setError("You're already the admin contact for this request.");
+      setLoading(false);
+      return;
+    }
 
     const result = await getOrCreateConversation(
       supabase,
