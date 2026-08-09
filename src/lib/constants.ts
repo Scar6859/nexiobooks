@@ -36,7 +36,22 @@ export const REGENTS_EXAMS = [
   "English Regents",
 ] as const;
 
-export const TOPICS = ["SAT", "PSAT", "ACT", ...AP_EXAMS, ...REGENTS_EXAMS] as const;
+export const GENERAL_TOPICS = [
+  "General Math",
+  "General Science",
+  "General English",
+  "General Social Studies",
+  "Books/Literature",
+] as const;
+
+export const TOPICS = [
+  "SAT",
+  "PSAT",
+  "ACT",
+  ...GENERAL_TOPICS,
+  ...AP_EXAMS,
+  ...REGENTS_EXAMS,
+] as const;
 
 export const CONDITIONS = ["Like New", "Good", "Fair", "Bad"] as const;
 
