@@ -47,15 +47,23 @@ export const SCHOOLS = [
 
 export const LISTING_TYPES = ["sell", "donate"] as const;
 
-/** Platform listing fee as a fraction of the asking price (10%). */
-export const LISTING_FEE_RATE = 0.1;
+/** Fixed listing-fee brackets by asking price. */
+export const LISTING_FEE_BRACKETS = [
+  { max: 10, fee: 2, label: "$10 or less" },
+  { max: 20, fee: 3, label: "$10 – $20" },
+  { max: 50, fee: 5, label: "$20 – $50" },
+  { max: 100, fee: 10, label: "$50 – $100" },
+  { max: Infinity, fee: 15, label: "$100+" },
+] as const;
 
-/** @deprecated Prefer LISTING_FEE_RATE — kept for homepage savings calc */
-export const COMMISSION_RATE = LISTING_FEE_RATE;
-
+/** Flat listing fee based on asking-price bracket. */
 export function calcListingFee(price: number | null | undefined): number {
   if (price == null || Number.isNaN(price) || price <= 0) return 0;
-  return Math.round(price * LISTING_FEE_RATE * 100) / 100;
+  if (price <= 10) return 2;
+  if (price <= 20) return 3;
+  if (price <= 50) return 5;
+  if (price < 100) return 10;
+  return 15;
 }
 
 export function formatListingFee(price: number | null | undefined): string {
