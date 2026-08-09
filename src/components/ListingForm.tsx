@@ -139,8 +139,16 @@ export default function ListingForm({
       listingType === "donate" ? null : priceRaw ? Number(priceRaw) : null;
 
     try {
+      if (totalImages < 1) {
+        throw new Error("Add at least one photo of the book.");
+      }
+
       const uploaded = await uploadListingImages(supabase, userId, newFiles);
       const image_urls = [...existingUrls, ...uploaded].slice(0, MAX_IMAGES);
+
+      if (image_urls.length < 1) {
+        throw new Error("Add at least one photo of the book.");
+      }
 
       let video_url: string | null = existingVideoUrl;
       if (videoFile) {
@@ -287,8 +295,12 @@ export default function ListingForm({
 
       <div>
         <label className="mb-2 block text-sm font-medium text-[var(--foreground)]">
-          Photos ({totalImages}/{MAX_IMAGES})
+          Photos ({totalImages}/{MAX_IMAGES}){" "}
+          <span className="font-normal text-[var(--muted)]">— required</span>
         </label>
+        <p className="mb-2 text-xs text-[var(--muted)]">
+          Add at least one clear photo of the book.
+        </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {existingUrls.map((url) => (
             <div
@@ -323,9 +335,17 @@ export default function ListingForm({
             </div>
           ))}
           {totalImages < MAX_IMAGES && (
-            <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--gold-muted)] hover:text-[var(--gold-muted)]">
+            <label
+              className={`flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed text-[var(--muted)] transition hover:border-[var(--gold-muted)] hover:text-[var(--gold-muted)] ${
+                totalImages === 0
+                  ? "border-[var(--gold-muted)]/50 bg-[var(--gold)]/5"
+                  : "border-[var(--border)]"
+              }`}
+            >
               <ImagePlus className="h-6 w-6" />
-              <span className="mt-1 text-xs font-medium">Add photo</span>
+              <span className="mt-1 text-xs font-medium">
+                {totalImages === 0 ? "Add photo *" : "Add photo"}
+              </span>
               <input
                 type="file"
                 accept="image/*"
