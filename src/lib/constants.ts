@@ -52,7 +52,7 @@ export const LISTING_FEE_BRACKETS = [
   { max: 10, fee: 2, label: "$10 or less" },
   { max: 20, fee: 3, label: "$10 – $20" },
   { max: 50, fee: 5, label: "$20 – $50" },
-  { max: 100, fee: 10, label: "$50 – $100" },
+  { max: 100, fee: 10, label: "$50 – under $100" },
   { max: Infinity, fee: 15, label: "$100+" },
 ] as const;
 
