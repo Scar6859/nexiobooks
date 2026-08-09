@@ -125,8 +125,8 @@ export default function Header() {
       }`}
     >
       <div className="mx-auto flex max-w-6xl flex-nowrap items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4">
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden sm:gap-3">
-          <div className="relative shrink-0 md:hidden" ref={menuRef}>
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
+          <div className="relative z-50 shrink-0 md:hidden" ref={menuRef}>
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
@@ -194,7 +194,7 @@ export default function Header() {
 
           <Link
             href="/"
-            className="flex min-w-0 items-center gap-2 sm:gap-3"
+            className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3"
           >
             <span className="shrink-0 sm:hidden">
               <Logo size={34} />
@@ -202,14 +202,14 @@ export default function Header() {
             <span className="hidden shrink-0 sm:inline">
               <Logo size={42} />
             </span>
-            <div className="min-w-0 leading-tight">
+            <div className="min-w-0 flex-1 overflow-hidden leading-tight">
               <div
                 className={`truncate text-base font-bold tracking-wide text-[var(--header-text)] sm:text-lg ${themeColorTransition}`}
               >
                 NEXIO<span className="text-[var(--gold)]">BOOKS</span>
               </div>
               <div
-                className={`hidden whitespace-nowrap text-[10px] uppercase tracking-[0.14em] text-[var(--header-text-muted)] lg:block ${themeColorTransition}`}
+                className={`hidden truncate text-[10px] uppercase tracking-[0.14em] text-[var(--header-text-muted)] lg:block ${themeColorTransition}`}
               >
                 Turning old books into new opportunities
               </div>
