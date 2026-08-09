@@ -86,6 +86,10 @@ export async function saveListing(
   existingId?: string,
 ): Promise<void> {
   const image_urls = normalizeImageUrls(input.image_urls);
+  if (image_urls.length < 1) {
+    throw new Error("Add at least one photo of the book.");
+  }
+
   const base = {
     title: input.title,
     topic: input.topic,
