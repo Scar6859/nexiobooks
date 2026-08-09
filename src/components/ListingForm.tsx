@@ -194,7 +194,9 @@ export default function ListingForm({
     } catch (err) {
       const message = getErrorMessage(err);
       setError(
-        /image_urls|video_url|schema cache|missing listing columns/i.test(message)
+        /image_urls|video_url|regular_price|schema cache|missing listing columns/i.test(
+          message,
+        )
           ? LISTING_SCHEMA_MESSAGE
           : message || "Something went wrong",
       );
