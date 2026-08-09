@@ -4,8 +4,7 @@ import BookCard from "@/components/BookCard";
 import IncomingRequests from "@/components/IncomingRequests";
 import { createClient } from "@/lib/supabase/server";
 import { resolveIsAdmin } from "@/lib/auth";
-import { MAX_LISTINGS_PER_USER } from "@/lib/constants";
-import { isListingLimitReached, normalizeListings } from "@/lib/listings";
+import { normalizeListings } from "@/lib/listings";
 import type { ListingRequestWithBuyer, Profile } from "@/lib/types";
 
 export default async function MyListingsPage() {
@@ -62,7 +61,6 @@ export default async function MyListingsPage() {
 
   const typedProfile = profile as Profile | null;
   const isAdmin = resolveIsAdmin(user.email, typedProfile?.is_admin);
-  const atLimit = isListingLimitReached(typedListings.length);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -70,24 +68,15 @@ export default async function MyListingsPage() {
         <div>
           <h1 className="text-3xl font-bold text-[var(--foreground)]">My Listings</h1>
           <p className="mt-2 text-[var(--muted)]">
-            Manage your books and respond to buyer requests.{" "}
-            <span className="font-medium text-[var(--foreground)]">
-              {typedListings.length}/{MAX_LISTINGS_PER_USER} listings
-            </span>
+            Manage your books and respond to buyer requests.
           </p>
         </div>
-        {atLimit ? (
-          <span className="rounded-full border border-[var(--border)] px-6 py-2.5 text-sm font-medium text-[var(--muted)]">
-            Listing limit reached
-          </span>
-        ) : (
-          <Link
-            href="/sell"
-            className="btn-navy px-6 py-2.5 text-sm"
-          >
-            List a book
-          </Link>
-        )}
+        <Link
+          href="/sell"
+          className="btn-navy px-6 py-2.5 text-sm"
+        >
+          List a book
+        </Link>
       </div>
 
       <section className="mb-10">

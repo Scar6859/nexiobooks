@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { COMMISSION_RATE } from "@/lib/constants";
+import { calcListingFee } from "@/lib/constants";
 import { ArrowRight, BookOpen, Heart, ShieldCheck } from "lucide-react";
 
 async function getStats() {
@@ -13,7 +13,8 @@ async function getStats() {
   const savings =
     listings?.reduce((sum, l) => {
       if (l.listing_type === "sell" && l.price) {
-        return sum + Number(l.price) * (1 - COMMISSION_RATE);
+        const price = Number(l.price);
+        return sum + Math.max(0, price - calcListingFee(price));
       }
       return sum;
     }, 0) ?? 0;

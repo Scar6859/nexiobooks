@@ -7,12 +7,9 @@ import {
   CONDITIONS,
   TOPICS,
   SCHOOLS,
-  MAX_LISTINGS_PER_USER,
-  LISTING_FEE_RATE,
   formatListingFee,
 } from "@/lib/constants";
 import {
-  LISTING_LIMIT_MESSAGE,
   LISTING_SCHEMA_MESSAGE,
   MAX_IMAGES,
   MAX_VIDEO_BYTES,
@@ -23,13 +20,13 @@ import {
 } from "@/lib/listings";
 import type { Listing } from "@/lib/types";
 import FancySelect from "./FancySelect";
+import ListingFeeBracketsLink from "./ListingFeeBracketsLink";
 import { ImagePlus, Video, X } from "lucide-react";
 
 type ListingFormProps = {
   userId: string;
   sellerInitials: string;
   listing?: Listing;
-  listingCount?: number;
 };
 
 function getErrorMessage(err: unknown): string {
@@ -56,7 +53,6 @@ export default function ListingForm({
   userId,
   sellerInitials,
   listing,
-  listingCount = 0,
 }: ListingFormProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -143,10 +139,6 @@ export default function ListingForm({
       listingType === "donate" ? null : priceRaw ? Number(priceRaw) : null;
 
     try {
-      if (!isEdit && listingCount >= MAX_LISTINGS_PER_USER) {
-        throw new Error(LISTING_LIMIT_MESSAGE);
-      }
-
       const uploaded = await uploadListingImages(supabase, userId, newFiles);
       const image_urls = [...existingUrls, ...uploaded].slice(0, MAX_IMAGES);
 
@@ -182,13 +174,9 @@ export default function ListingForm({
     } catch (err) {
       const message = getErrorMessage(err);
       setError(
-        message.includes("Listing limit") || message.includes("listing limit")
-          ? LISTING_LIMIT_MESSAGE
-          : /image_urls|video_url|schema cache|missing listing columns/i.test(
-                message,
-              )
-            ? LISTING_SCHEMA_MESSAGE
-            : message || "Something went wrong",
+        /image_urls|video_url|schema cache|missing listing columns/i.test(message)
+          ? LISTING_SCHEMA_MESSAGE
+          : message || "Something went wrong",
       );
       setLoading(false);
     }
@@ -206,7 +194,7 @@ export default function ListingForm({
         <p className="text-sm text-[var(--muted)]">
           {isEdit
             ? "Update your listing details, photos, and video."
-            : `Create a listing for your study materials. (${listingCount}/${MAX_LISTINGS_PER_USER} used)`}
+            : "Create a listing for your study materials."}
         </p>
       </div>
 
@@ -262,15 +250,16 @@ export default function ListingForm({
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm">
             <div className="flex items-baseline justify-between gap-3">
               <span className="font-medium text-[var(--foreground)]">
-                Listing fee ({Math.round(LISTING_FEE_RATE * 100)}%)
+                Listing fee
               </span>
               <span className="text-base font-semibold text-[var(--gold-muted)]">
                 {formatListingFee(priceNumber)}
               </span>
             </div>
             <p className="mt-1.5 text-[var(--muted)]">
-              You pay this {Math.round(LISTING_FEE_RATE * 100)}% listing fee when you hand the
-              book over to us. When a buyer pays, you receive the full amount they pay.
+              You pay this listing fee when you hand the book over to us. When a
+              buyer pays, you receive the full amount they pay.{" "}
+              <ListingFeeBracketsLink />
             </p>
           </div>
         </div>
