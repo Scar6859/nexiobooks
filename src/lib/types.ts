@@ -17,6 +17,7 @@ export type Listing = {
   condition: string;
   listing_type: "sell" | "donate";
   price: number | null;
+  regular_price: number | null;
   location: string;
   note: string | null;
   image_urls: string[];

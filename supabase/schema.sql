@@ -19,6 +19,7 @@ create table if not exists public.listings (
   condition text not null,
   listing_type text not null check (listing_type in ('sell', 'donate')),
   price numeric(10,2),
+  regular_price numeric(10,2),
   location text not null,
   note text,
   image_urls text[] not null default '{}',

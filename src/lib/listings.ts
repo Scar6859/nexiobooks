@@ -26,10 +26,18 @@ export function normalizeListing(row: ListingRow): Listing {
       ? fromArray
       : normalizeImageUrls(row.image_url ? [row.image_url] : []);
 
+  const regularRaw = (row as { regular_price?: unknown }).regular_price;
+  const regular_price =
+    regularRaw == null || regularRaw === ""
+      ? null
+      : Number(regularRaw);
+
   return {
     ...(row as unknown as Listing),
     image_urls,
     video_url: (row.video_url as string | null | undefined) ?? null,
+    regular_price:
+      regular_price != null && !Number.isNaN(regular_price) ? regular_price : null,
   };
 }
 
@@ -48,7 +56,7 @@ function getErrorMessage(err: unknown): string {
 
 export function isMissingListingColumnError(err: unknown): boolean {
   const message = getErrorMessage(err);
-  return /image_urls|video_url|schema cache|column .* does not exist/i.test(
+  return /image_urls|video_url|regular_price|schema cache|column .* does not exist/i.test(
     message,
   );
 }
@@ -60,6 +68,7 @@ type SaveListingInput = {
   condition: string;
   listing_type: "sell" | "donate";
   price: number | null;
+  regular_price: number;
   location: string;
   note: string | null;
   image_urls: string[];
@@ -89,6 +98,20 @@ export async function saveListing(
   if (image_urls.length < 1) {
     throw new Error("Add at least one photo of the book.");
   }
+  if (
+    input.regular_price == null ||
+    Number.isNaN(input.regular_price) ||
+    input.regular_price <= 0
+  ) {
+    throw new Error("Enter the book's regular retail price.");
+  }
+  if (
+    input.listing_type === "sell" &&
+    input.price != null &&
+    input.regular_price < input.price
+  ) {
+    throw new Error("Regular price should be at least your listing price.");
+  }
 
   const base = {
     title: input.title,
@@ -96,6 +119,7 @@ export async function saveListing(
     condition: input.condition,
     listing_type: input.listing_type,
     price: input.price,
+    regular_price: input.regular_price,
     location: input.location,
     note: input.note,
     seller_initials: input.seller_initials,

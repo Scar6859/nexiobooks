@@ -17,6 +17,9 @@ alter table public.listings
 alter table public.listings
   add column if not exists video_url text;
 
+alter table public.listings
+  add column if not exists regular_price numeric(10, 2);
+
 do $$
 begin
   if exists (

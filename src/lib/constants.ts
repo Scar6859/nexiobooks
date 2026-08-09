@@ -70,3 +70,19 @@ export function formatListingFee(price: number | null | undefined): string {
   const fee = calcListingFee(price);
   return fee > 0 ? `$${fee.toFixed(2)}` : "$0.00";
 }
+
+/** Buyer savings vs regular/retail price (donate counts as $0 listed). */
+export function calcListingSavings(
+  regularPrice: number | null | undefined,
+  listedPrice: number | null | undefined,
+  listingType?: "sell" | "donate" | null,
+): number {
+  if (regularPrice == null || Number.isNaN(regularPrice) || regularPrice <= 0) {
+    return 0;
+  }
+  const listed =
+    listingType === "donate" || listedPrice == null || Number.isNaN(listedPrice)
+      ? 0
+      : listedPrice;
+  return Math.max(0, Math.round((regularPrice - listed) * 100) / 100);
+}

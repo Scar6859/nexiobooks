@@ -1,22 +1,27 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { calcListingFee } from "@/lib/constants";
+import { calcListingSavings } from "@/lib/constants";
 import { ArrowRight, BookOpen, Heart, ShieldCheck } from "lucide-react";
 
 async function getStats() {
   const supabase = await createClient();
-  const { data: listings } = await supabase.from("listings").select("price, listing_type");
+  const { data: listings } = await supabase
+    .from("listings")
+    .select("price, regular_price, listing_type");
 
   const books = listings?.length ?? 0;
   const donations = listings?.filter((l) => l.listing_type === "donate").length ?? 0;
   const savings =
     listings?.reduce((sum, l) => {
-      if (l.listing_type === "sell" && l.price) {
-        const price = Number(l.price);
-        return sum + Math.max(0, price - calcListingFee(price));
-      }
-      return sum;
+      return (
+        sum +
+        calcListingSavings(
+          l.regular_price == null ? null : Number(l.regular_price),
+          l.price == null ? null : Number(l.price),
+          l.listing_type as "sell" | "donate",
+        )
+      );
     }, 0) ?? 0;
 
   return { books, donations, savings: Math.round(savings) };

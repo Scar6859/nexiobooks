@@ -76,6 +76,9 @@ export default function ListingForm({
   const [priceInput, setPriceInput] = useState(
     listing?.price != null ? String(listing.price) : "",
   );
+  const [regularPriceInput, setRegularPriceInput] = useState(
+    listing?.regular_price != null ? String(listing.regular_price) : "",
+  );
 
   const totalImages = existingUrls.length + newFiles.length;
   const priceNumber = priceInput === "" ? null : Number(priceInput);
@@ -137,10 +140,18 @@ export default function ListingForm({
     const priceRaw = String(form.get("price") ?? "");
     const price =
       listingType === "donate" ? null : priceRaw ? Number(priceRaw) : null;
+    const regularPriceRaw = String(form.get("regular_price") ?? "");
+    const regular_price = regularPriceRaw ? Number(regularPriceRaw) : NaN;
 
     try {
       if (totalImages < 1) {
         throw new Error("Add at least one photo of the book.");
+      }
+      if (!regularPriceRaw || Number.isNaN(regular_price) || regular_price <= 0) {
+        throw new Error("Enter the book's regular retail price.");
+      }
+      if (listingType === "sell" && price != null && regular_price < price) {
+        throw new Error("Regular price should be at least your listing price.");
       }
 
       const uploaded = await uploadListingImages(supabase, userId, newFiles);
@@ -167,6 +178,7 @@ export default function ListingForm({
           condition,
           listing_type: listingType,
           price,
+          regular_price,
           location,
           note: note || null,
           image_urls,
@@ -242,6 +254,23 @@ export default function ListingForm({
         />
       </div>
 
+      <div className="space-y-2">
+        <input
+          name="regular_price"
+          type="number"
+          min="0.01"
+          step="0.01"
+          required
+          value={regularPriceInput}
+          onChange={(e) => setRegularPriceInput(e.target.value)}
+          placeholder="Regular retail price"
+          className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[var(--gold-muted)]"
+        />
+        <p className="text-xs text-[var(--muted)]">
+          What the book normally costs new — used for estimated savings.
+        </p>
+      </div>
+
       {listingType === "sell" && (
         <div className="space-y-2">
           <input
@@ -252,7 +281,7 @@ export default function ListingForm({
             required
             value={priceInput}
             onChange={(e) => setPriceInput(e.target.value)}
-            placeholder="Price"
+            placeholder="Your listing price"
             className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[var(--gold-muted)]"
           />
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm">
