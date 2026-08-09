@@ -50,13 +50,23 @@ function LoginForm() {
         placeholder="Email"
         className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[var(--gold-muted)]"
       />
-      <input
-        name="password"
-        type="password"
-        required
-        placeholder="Password"
-        className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[var(--gold-muted)]"
-      />
+      <div className="space-y-2">
+        <input
+          name="password"
+          type="password"
+          required
+          placeholder="Password"
+          className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[var(--gold-muted)]"
+        />
+        <div className="text-right">
+          <Link
+            href="/forgot-password"
+            className="text-sm font-medium text-[var(--gold-muted)] hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
+      </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 

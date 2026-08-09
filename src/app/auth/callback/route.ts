@@ -3,10 +3,18 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { ensureUserProfile } from "@/lib/profile";
 
+function safeNextPath(next: string | null): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) {
+    return "/auth/confirmed";
+  }
+  return next;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const confirmedUrl = `${origin}/auth/confirmed`;
+  const next = safeNextPath(searchParams.get("next"));
+  const redirectUrl = `${origin}${next}`;
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -41,5 +49,5 @@ export async function GET(request: Request) {
     await ensureUserProfile(supabase, user);
   }
 
-  return NextResponse.redirect(confirmedUrl);
+  return NextResponse.redirect(redirectUrl);
 }
