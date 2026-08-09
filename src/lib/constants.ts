@@ -70,5 +70,3 @@ export function formatListingFee(price: number | null | undefined): string {
   const fee = calcListingFee(price);
   return fee > 0 ? `$${fee.toFixed(2)}` : "$0.00";
 }
-
-export const MAX_LISTINGS_PER_USER = 10;

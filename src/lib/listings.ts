@@ -1,10 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { MAX_LISTINGS_PER_USER } from "@/lib/constants";
 import type { Listing, ListingWithSeller, Profile } from "@/lib/types";
 
 const MAX_IMAGES = 4;
-
-export const LISTING_LIMIT_MESSAGE = `You can list up to ${MAX_LISTINGS_PER_USER} books. Remove an existing listing to add another.`;
 
 export const LISTING_SCHEMA_MESSAGE =
   "Your database is missing listing columns. Open supabase/fix-live-schema.sql in the Supabase SQL Editor for project qbjicdrathvdgphzwogk, run it, then try again.";
@@ -187,26 +184,6 @@ export async function fetchSellerProfiles(
   }
 
   return data ?? [];
-}
-
-export async function getUserListingCount(
-  supabase: SupabaseClient,
-  userId: string,
-): Promise<number> {
-  const { count, error } = await supabase
-    .from("listings")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("getUserListingCount", error);
-    return 0;
-  }
-  return count ?? 0;
-}
-
-export function isListingLimitReached(count: number): boolean {
-  return count >= MAX_LISTINGS_PER_USER;
 }
 
 export async function uploadListingImages(

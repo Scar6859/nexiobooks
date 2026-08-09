@@ -7,11 +7,9 @@ import {
   CONDITIONS,
   TOPICS,
   SCHOOLS,
-  MAX_LISTINGS_PER_USER,
   formatListingFee,
 } from "@/lib/constants";
 import {
-  LISTING_LIMIT_MESSAGE,
   LISTING_SCHEMA_MESSAGE,
   MAX_IMAGES,
   MAX_VIDEO_BYTES,
@@ -29,7 +27,6 @@ type ListingFormProps = {
   userId: string;
   sellerInitials: string;
   listing?: Listing;
-  listingCount?: number;
 };
 
 function getErrorMessage(err: unknown): string {
@@ -56,7 +53,6 @@ export default function ListingForm({
   userId,
   sellerInitials,
   listing,
-  listingCount = 0,
 }: ListingFormProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -143,10 +139,6 @@ export default function ListingForm({
       listingType === "donate" ? null : priceRaw ? Number(priceRaw) : null;
 
     try {
-      if (!isEdit && listingCount >= MAX_LISTINGS_PER_USER) {
-        throw new Error(LISTING_LIMIT_MESSAGE);
-      }
-
       const uploaded = await uploadListingImages(supabase, userId, newFiles);
       const image_urls = [...existingUrls, ...uploaded].slice(0, MAX_IMAGES);
 
@@ -182,13 +174,9 @@ export default function ListingForm({
     } catch (err) {
       const message = getErrorMessage(err);
       setError(
-        message.includes("Listing limit") || message.includes("listing limit")
-          ? LISTING_LIMIT_MESSAGE
-          : /image_urls|video_url|schema cache|missing listing columns/i.test(
-                message,
-              )
-            ? LISTING_SCHEMA_MESSAGE
-            : message || "Something went wrong",
+        /image_urls|video_url|schema cache|missing listing columns/i.test(message)
+          ? LISTING_SCHEMA_MESSAGE
+          : message || "Something went wrong",
       );
       setLoading(false);
     }
@@ -206,7 +194,7 @@ export default function ListingForm({
         <p className="text-sm text-[var(--muted)]">
           {isEdit
             ? "Update your listing details, photos, and video."
-            : `Create a listing for your study materials. (${listingCount}/${MAX_LISTINGS_PER_USER} used)`}
+            : "Create a listing for your study materials."}
         </p>
       </div>
 
