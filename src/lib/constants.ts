@@ -38,7 +38,7 @@ export const REGENTS_EXAMS = [
 
 export const TOPICS = ["SAT", "ACT", ...AP_EXAMS, ...REGENTS_EXAMS] as const;
 
-export const CONDITIONS = ["Like New", "Good", "Fair"] as const;
+export const CONDITIONS = ["Like New", "Good", "Fair", "Bad"] as const;
 
 export const SCHOOLS = [
   "Herricks High School",
