@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import ListingForm from "@/components/ListingForm";
 import { resolveIsAdmin } from "@/lib/auth";
 import { normalizeListing } from "@/lib/listings";
-import { initialsFromName } from "@/lib/profile";
+import { ensureUserProfile, initialsFromName } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
@@ -21,6 +21,8 @@ export default async function EditListingPage({
     redirect(`/login?redirect=/sell/edit/${id}`);
   }
 
+  await ensureUserProfile(supabase, user);
+
   const { data: listing } = await supabase
     .from("listings")
     .select("*")
@@ -37,20 +39,24 @@ export default async function EditListingPage({
 
   const typedListing = normalizeListing(listing);
   const typedProfile = profile as Profile | null;
-  const isOwner = typedListing.user_id === user.id;
   const isAdmin = resolveIsAdmin(user.email, typedProfile?.is_admin);
 
-  if (!isOwner && !isAdmin) {
-    redirect("/buy");
+  if (!isAdmin) {
+    redirect("/sell");
   }
 
-  if (isAdmin && typedProfile && !typedProfile.is_admin) {
+  if (typedProfile && !typedProfile.is_admin) {
     await supabase.from("profiles").upsert({ id: user.id, is_admin: true });
   }
 
-  const { data: ownerProfile } = isOwner
-    ? { data: profile }
-    : await supabase.from("profiles").select("*").eq("id", typedListing.user_id).single();
+  const { data: ownerProfile } =
+    typedListing.user_id === user.id
+      ? { data: profile }
+      : await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", typedListing.user_id)
+          .single();
 
   const owner = ownerProfile as Profile | null;
   const sellerInitials =

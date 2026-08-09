@@ -68,9 +68,9 @@ create policy "Users can update own profile"
 create policy "Listings are viewable by everyone"
   on public.listings for select using (true);
 
-create policy "Authenticated users can create listings"
+create policy "Admins can create listings"
   on public.listings for insert
-  with check (auth.uid() = user_id);
+  with check (public.is_admin());
 
 create policy "Users and admins can update listings"
   on public.listings for update
