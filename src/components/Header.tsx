@@ -124,16 +124,16 @@ export default function Header() {
           : "border-[var(--header-border)] bg-[var(--header-bg)]"
       }`}
     >
-      <div className="mx-auto flex max-w-6xl flex-nowrap items-center justify-between gap-2 px-4 py-3 sm:gap-3">
-        <div className="flex min-w-0 shrink items-center gap-2 sm:gap-3">
-          <div className="relative md:hidden" ref={menuRef}>
+      <div className="mx-auto flex max-w-6xl flex-nowrap items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden sm:gap-3">
+          <div className="relative shrink-0 md:hidden" ref={menuRef}>
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
               aria-expanded={menuOpen}
               aria-haspopup="menu"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
-              className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--header-control-border)] text-[var(--header-text)] transition-all duration-200 hover:bg-[var(--header-control-hover)] ${
+              className={`flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--header-control-border)] text-[var(--header-text)] transition-all duration-200 hover:bg-[var(--header-control-hover)] sm:h-10 sm:w-10 ${
                 menuOpen ? "bg-[var(--header-control-hover)]" : ""
               }`}
             >
@@ -177,16 +177,34 @@ export default function Header() {
                       </Link>
                     );
                   })}
+                  {!user && (
+                    <Link
+                      href="/signup"
+                      role="menuitem"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center rounded-xl px-3 py-3 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--surface-2)] sm:hidden"
+                    >
+                      Sign up
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          <Link href="/" className="flex min-w-0 shrink-0 items-center gap-2.5 sm:gap-3">
-            <Logo size={42} />
+          <Link
+            href="/"
+            className="flex min-w-0 items-center gap-2 sm:gap-3"
+          >
+            <span className="shrink-0 sm:hidden">
+              <Logo size={34} />
+            </span>
+            <span className="hidden shrink-0 sm:inline">
+              <Logo size={42} />
+            </span>
             <div className="min-w-0 leading-tight">
               <div
-                className={`whitespace-nowrap text-lg font-bold tracking-wide text-[var(--header-text)] ${themeColorTransition}`}
+                className={`truncate text-base font-bold tracking-wide text-[var(--header-text)] sm:text-lg ${themeColorTransition}`}
               >
                 NEXIO<span className="text-[var(--gold)]">BOOKS</span>
               </div>
@@ -221,7 +239,7 @@ export default function Header() {
             })}
         </nav>
 
-        <div className="flex shrink-0 flex-nowrap items-center gap-2">
+        <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
           <ThemeToggle />
           {user ? (
             <>
@@ -245,7 +263,7 @@ export default function Header() {
               </Link>
               <button
                 onClick={signOut}
-                className={`shrink-0 whitespace-nowrap rounded-full border border-[var(--header-control-border)] px-3 py-2 text-sm font-medium text-[var(--header-text)] hover:bg-[var(--header-control-hover)] sm:px-4 ${themeColorTransition}`}
+                className={`shrink-0 whitespace-nowrap rounded-full border border-[var(--header-control-border)] px-2.5 py-2 text-sm font-medium text-[var(--header-text)] hover:bg-[var(--header-control-hover)] sm:px-4 ${themeColorTransition}`}
               >
                 Log out
               </button>
@@ -254,13 +272,13 @@ export default function Header() {
             <>
               <Link
                 href="/login"
-                className={`shrink-0 whitespace-nowrap rounded-full border border-[var(--header-control-border)] px-3 py-2 text-sm font-medium text-[var(--header-text)] hover:bg-[var(--header-control-hover)] sm:px-4 ${themeColorTransition}`}
+                className={`shrink-0 whitespace-nowrap rounded-full border border-[var(--header-control-border)] px-2.5 py-2 text-sm font-medium text-[var(--header-text)] hover:bg-[var(--header-control-hover)] sm:px-4 ${themeColorTransition}`}
               >
                 Log in
               </Link>
               <Link
                 href="/signup"
-                className="shrink-0 whitespace-nowrap rounded-full bg-[var(--gold)] px-3 py-2 text-sm font-semibold text-[#0a1628] transition-[background-color] duration-[250ms] ease hover:bg-[var(--gold-light)] sm:px-4"
+                className="hidden shrink-0 whitespace-nowrap rounded-full bg-[var(--gold)] px-3 py-2 text-sm font-semibold text-[#0a1628] transition-[background-color] duration-[250ms] ease hover:bg-[var(--gold-light)] sm:inline-flex sm:px-4"
               >
                 Sign up
               </Link>
