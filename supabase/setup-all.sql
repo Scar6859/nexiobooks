@@ -57,6 +57,7 @@ grant select, insert, update, delete on public.listing_requests to anon, authent
 alter table public.profiles add column if not exists is_admin boolean not null default false;
 alter table public.listings add column if not exists image_urls text[] not null default '{}';
 alter table public.listings add column if not exists video_url text;
+alter table public.listings add column if not exists regular_price numeric(10, 2);
 
 do $$
 begin
