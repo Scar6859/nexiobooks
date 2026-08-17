@@ -31,6 +31,16 @@ export default function IncomingRequests({
       alert(error.message);
       return;
     }
+
+    // Take the listing off the buy page when accepted; restore it otherwise.
+    const req = requests.find((r) => r.id === id);
+    if (req) {
+      await supabase
+        .from("listings")
+        .update({ available: status !== "accepted" })
+        .eq("id", req.listing_id);
+    }
+
     router.refresh();
   }
 

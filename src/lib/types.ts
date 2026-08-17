@@ -23,6 +23,7 @@ export type Listing = {
   image_urls: string[];
   video_url: string | null;
   seller_initials: string | null;
+  available: boolean;
   created_at: string;
 };
 

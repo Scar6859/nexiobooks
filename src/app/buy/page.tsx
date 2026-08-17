@@ -22,6 +22,7 @@ export default async function BuyPage({
   const { data } = await supabase
     .from("listings")
     .select("*")
+    .eq("available", true)
     .order("created_at", { ascending: false });
 
   const listings = normalizeListings(data);

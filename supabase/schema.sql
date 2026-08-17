@@ -25,6 +25,7 @@ create table if not exists public.listings (
   image_urls text[] not null default '{}',
   video_url text,
   seller_initials text,
+  available boolean not null default true,
   created_at timestamptz default now(),
   constraint listings_image_urls_max check (coalesce(array_length(image_urls, 1), 0) <= 4)
 );
