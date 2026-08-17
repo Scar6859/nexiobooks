@@ -23,7 +23,7 @@ export default function Logo({
   return (
     <Image
       src="/brand/nexio-mark.png"
-      alt="NexioBooks"
+      alt="NEXIOBOOKS"
       width={size}
       height={size}
       className="rounded-md object-contain"

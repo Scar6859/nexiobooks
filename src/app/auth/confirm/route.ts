@@ -60,5 +60,17 @@ export async function GET(request: NextRequest) {
     await ensureUserProfile(supabase, user);
   }
 
-  return NextResponse.redirect(redirectTo);
+  const response = NextResponse.redirect(redirectTo);
+
+  // Flag recovery flows so the reset-password page can verify the user arrived
+  // via a legitimate reset link rather than by navigating directly.
+  if (type === "recovery") {
+    response.cookies.set("reset-in-progress", "1", {
+      maxAge: 600,
+      path: "/",
+      sameSite: "lax",
+    });
+  }
+
+  return response;
 }

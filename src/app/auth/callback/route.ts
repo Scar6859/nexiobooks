@@ -14,7 +14,6 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = safeNextPath(searchParams.get("next"));
-  const redirectUrl = `${origin}${next}`;
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -49,5 +48,17 @@ export async function GET(request: Request) {
     await ensureUserProfile(supabase, user);
   }
 
-  return NextResponse.redirect(redirectUrl);
+  const response = NextResponse.redirect(`${origin}${next}`);
+
+  // For password recovery: set a short-lived cookie so the reset-password
+  // page knows the user arrived via a genuine reset link and shows the form.
+  if (next === "/reset-password") {
+    response.cookies.set("reset-in-progress", "1", {
+      maxAge: 600,
+      path: "/",
+      sameSite: "lax",
+    });
+  }
+
+  return response;
 }
