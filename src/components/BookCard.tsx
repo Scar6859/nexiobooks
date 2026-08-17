@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { calcListingSavings, formatListingFee } from "@/lib/constants";
+import { calcListingSavings } from "@/lib/constants";
 import type { ListingWithSeller } from "@/lib/types";
 import ImageGallery from "./ImageGallery";
 import RequestModal from "./RequestModal";
@@ -37,8 +37,6 @@ export default function BookCard({
     listing.price,
     listing.listing_type,
   );
-  const showListingFee =
-    isOwn && listing.listing_type === "sell" && listing.price != null;
 
   const requestLabel =
     requestStatus === "accepted"
@@ -136,17 +134,6 @@ export default function BookCard({
                 <div className="mt-0.5 text-xs text-[var(--muted)]">
                   Reg. ${Number(listing.regular_price).toFixed(0)}
                   {savings > 0 ? ` · Save $${savings.toFixed(0)}` : ""}
-                </div>
-              )}
-              {showListingFee && (
-                <div className="mt-1 max-w-[11rem] text-xs text-[var(--muted)]">
-                  Listing fee:{" "}
-                  <span className="font-semibold text-[var(--foreground)]">
-                    {formatListingFee(Number(listing.price))}
-                  </span>
-                  <span className="mt-0.5 block leading-snug">
-                    Due when you hand the book over. You get the buyer&apos;s full payment.
-                  </span>
                 </div>
               )}
               {!isOwn && (

@@ -62,30 +62,6 @@ export const SCHOOLS = [
 
 export const LISTING_TYPES = ["sell", "donate"] as const;
 
-/** Fixed listing-fee brackets by asking price. */
-export const LISTING_FEE_BRACKETS = [
-  { max: 10, fee: 2, label: "$10 or less" },
-  { max: 20, fee: 3, label: "$10 – $20" },
-  { max: 50, fee: 5, label: "$20 – $50" },
-  { max: 100, fee: 10, label: "$50 – under $100" },
-  { max: Infinity, fee: 15, label: "$100+" },
-] as const;
-
-/** Flat listing fee based on asking-price bracket. */
-export function calcListingFee(price: number | null | undefined): number {
-  if (price == null || Number.isNaN(price) || price <= 0) return 0;
-  if (price <= 10) return 2;
-  if (price <= 20) return 3;
-  if (price <= 50) return 5;
-  if (price < 100) return 10;
-  return 15;
-}
-
-export function formatListingFee(price: number | null | undefined): string {
-  const fee = calcListingFee(price);
-  return fee > 0 ? `$${fee.toFixed(2)}` : "$0.00";
-}
-
 /** Buyer savings vs regular/retail price (donate counts as $0 listed). */
 export function calcListingSavings(
   regularPrice: number | null | undefined,

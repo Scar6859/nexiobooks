@@ -3,12 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import {
-  CONDITIONS,
-  TOPICS,
-  SCHOOLS,
-  formatListingFee,
-} from "@/lib/constants";
+import { CONDITIONS, TOPICS, SCHOOLS } from "@/lib/constants";
 import {
   LISTING_SCHEMA_MESSAGE,
   MAX_IMAGES,
@@ -20,7 +15,6 @@ import {
 } from "@/lib/listings";
 import type { Listing } from "@/lib/types";
 import FancySelect from "./FancySelect";
-import ListingFeeBracketsLink from "./ListingFeeBracketsLink";
 import { ImagePlus, Video, X } from "lucide-react";
 
 type ListingFormProps = {
@@ -81,7 +75,6 @@ export default function ListingForm({
   );
 
   const totalImages = existingUrls.length + newFiles.length;
-  const priceNumber = priceInput === "" ? null : Number(priceInput);
 
   function onFilesSelected(files: FileList | null) {
     if (!files) return;
@@ -286,21 +279,6 @@ export default function ListingForm({
             placeholder="Your listing price"
             className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm outline-none focus:border-[var(--gold-muted)]"
           />
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-sm">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="font-medium text-[var(--foreground)]">
-                Listing fee
-              </span>
-              <span className="text-base font-semibold text-[var(--gold-muted)]">
-                {formatListingFee(priceNumber)}
-              </span>
-            </div>
-            <p className="mt-1.5 text-[var(--muted)]">
-              You pay this listing fee when you hand the book over to us. When a
-              buyer pays, you receive the full amount they pay.{" "}
-              <ListingFeeBracketsLink />
-            </p>
-          </div>
         </div>
       )}
 
