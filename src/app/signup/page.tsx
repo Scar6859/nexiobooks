@@ -108,7 +108,7 @@ function SignupForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 shadow-sm">
       <h1 className="text-2xl font-bold text-[var(--foreground)]">Sign up</h1>
-      <p className="text-sm text-[var(--muted)]">Create your NexioBooks account to list and buy books.</p>
+      <p className="text-sm text-[var(--muted)]">Create your NEXIOBOOKS account to list and buy books.</p>
 
       <input
         name="full_name"

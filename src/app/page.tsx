@@ -46,7 +46,7 @@ export default async function HomePage() {
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20 lg:px-10 lg:py-28">
           <p className="animate-fade-up font-display text-5xl font-semibold tracking-tight text-white sm:text-6xl lg:text-7xl">
-            Nexio<span className="text-[var(--gold)]">Books</span>
+            NEXIO<span className="text-[var(--gold)]">BOOKS</span>
           </p>
           <h1 className="animate-fade-up-delay mt-5 max-w-2xl text-2xl font-medium leading-snug text-white/95 sm:text-3xl lg:text-4xl">
             Turning old books into new opportunities.
@@ -101,7 +101,7 @@ export default async function HomePage() {
             Study smarter. Waste less.
           </h2>
           <p className="mt-4 text-base text-[var(--muted)] sm:text-lg">
-            NexioBooks gives every study guide a second life — making exam prep more affordable,
+            NEXIOBOOKS gives every study guide a second life — making exam prep more affordable,
             sustainable, and accessible for students nearby.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">

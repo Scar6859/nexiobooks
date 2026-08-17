@@ -187,7 +187,7 @@ export default function MessagesClient({
             onClick={startWithAdmin}
             className="mb-3 w-full rounded-xl border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] hover:border-[var(--gold-muted)] disabled:opacity-60"
           >
-            Message NexioBooks admin
+            Message NEXIOBOOKS admin
           </button>
         )}
 

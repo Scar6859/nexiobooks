@@ -142,7 +142,7 @@ export default function ResetPasswordPage() {
           Set a new password
         </h1>
         <p className="text-sm text-[var(--muted)]">
-          Choose a new password for your NexioBooks account.
+          Choose a new password for your NEXIOBOOKS account.
         </p>
 
         <input

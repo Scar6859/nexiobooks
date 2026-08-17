@@ -206,7 +206,7 @@ export default function Header() {
               <div
                 className={`truncate text-base font-bold tracking-wide text-[var(--header-text)] sm:text-lg ${themeColorTransition}`}
               >
-                Nexio<span className="text-[var(--gold)]">Books</span>
+                NEXIO<span className="text-[var(--gold)]">BOOKS</span>
               </div>
               <div
                 className={`hidden truncate text-[10px] uppercase tracking-[0.14em] text-[var(--header-text-muted)] lg:block ${themeColorTransition}`}

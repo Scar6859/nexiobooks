@@ -193,7 +193,7 @@ export default function ChatPanel({
         />
         <div>
           <div className="font-semibold text-[var(--foreground)]">
-            {peer.full_name ?? "NexioBooks Admin"}
+            {peer.full_name ?? "NEXIOBOOKS Admin"}
           </div>
           <div className="text-xs text-[var(--muted)]">Direct message</div>
         </div>

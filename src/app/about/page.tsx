@@ -5,10 +5,10 @@ export default function AboutPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="font-display text-4xl font-semibold text-[var(--foreground)] sm:text-5xl">
-        About Nexio<span className="text-[var(--gold-muted)]">Books</span>
+        About NEXIO<span className="text-[var(--gold-muted)]">BOOKS</span>
       </h1>
       <p className="mt-4 text-lg text-[var(--muted)]">
-        Every study guide deserves a second life. NexioBooks is a student marketplace for buying,
+        Every study guide deserves a second life. NEXIOBOOKS is a student marketplace for buying,
         selling, and donating used prep books within local school communities.
       </p>
 
