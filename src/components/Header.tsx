@@ -39,6 +39,7 @@ export default function Header() {
   const supabase = createClient();
   const { theme } = useTheme();
   const isHome = pathname === "/";
+  const isResetPage = pathname === "/reset-password";
   const onDarkBar = theme === "dark";
 
   const mobileNav = [
@@ -219,7 +220,7 @@ export default function Header() {
 
         <nav className="hidden min-w-0 shrink items-center gap-3 overflow-hidden md:flex lg:gap-5">
           {nav
-            .filter((item) => !item.auth || user)
+            .filter((item) => !item.auth || (user && !isResetPage))
             .map((item) => {
               const active =
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -241,7 +242,7 @@ export default function Header() {
 
         <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
           <ThemeToggle />
-          {user ? (
+          {user && !isResetPage ? (
             <>
               <Link
                 href="/profile"

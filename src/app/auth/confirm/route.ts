@@ -1,5 +1,4 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { ensureUserProfile } from "@/lib/profile";
@@ -10,6 +9,20 @@ import { ensureUserProfile } from "@/lib/profile";
  * {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email
  * {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password
  */
+
+function parseCookies(header: string): { name: string; value: string }[] {
+  return header
+    .split(";")
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .map((c) => {
+      const idx = c.indexOf("=");
+      return idx < 0
+        ? { name: c, value: "" }
+        : { name: c.slice(0, idx).trim(), value: c.slice(idx + 1).trim() };
+    });
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const tokenHash = searchParams.get("token_hash");
@@ -27,23 +40,21 @@ export async function GET(request: NextRequest) {
   redirectTo.pathname = safeNext;
   redirectTo.search = "";
 
-  const cookieStore = await cookies();
+  // Build the redirect response first so all cookies land on the same object.
+  const response = NextResponse.redirect(redirectTo);
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          return parseCookies(request.headers.get("cookie") ?? "");
         },
         setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Ignore if cookies cannot be set in this context.
-          }
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
         },
       },
     }
@@ -60,10 +71,6 @@ export async function GET(request: NextRequest) {
     await ensureUserProfile(supabase, user);
   }
 
-  const response = NextResponse.redirect(redirectTo);
-
-  // Flag recovery flows so the reset-password page can verify the user arrived
-  // via a legitimate reset link rather than by navigating directly.
   if (type === "recovery") {
     response.cookies.set("reset-in-progress", "1", {
       maxAge: 600,
