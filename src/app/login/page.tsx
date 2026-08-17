@@ -42,7 +42,7 @@ function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 shadow-sm">
       <h1 className="text-2xl font-bold text-[var(--foreground)]">Log in</h1>
-      <p className="text-sm text-[var(--muted)]">Welcome back to NexioBooks.</p>
+      <p className="text-sm text-[var(--muted)]">Welcome back to NEXIOBOOKS.</p>
 
       {resetSuccess && (
         <p className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700 border border-green-200">

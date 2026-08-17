@@ -27,7 +27,7 @@ const STATUS_STYLES: Record<BuyerRequest["status"], string> = {
 const STATUS_HELP: Record<BuyerRequest["status"], string> = {
   pending: "Waiting for the seller to respond.",
   accepted:
-    "Accepted! Message a NexioBooks admin — books go to us first, then we deliver them to you.",
+    "Accepted! Message a NEXIOBOOKS admin — books go to us first, then we deliver them to you.",
   declined: "The seller declined this request.",
   completed: "This request was marked completed.",
 };

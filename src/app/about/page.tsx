@@ -8,7 +8,7 @@ export default function AboutPage() {
         About Nexio<span className="text-[var(--gold-muted)]">Books</span>
       </h1>
       <p className="mt-4 text-lg text-[var(--muted)]">
-        Every study guide deserves a second life. NexioBooks is a student marketplace for buying,
+        Every study guide deserves a second life. NEXIOBOOKS is a student marketplace for buying,
         selling, and donating used prep books within local school communities.
       </p>
 

@@ -199,7 +199,7 @@ export default async function MessagesPage({
         <p className="mt-2 text-sm text-[var(--muted)]">
           {isAdmin
             ? "Message any user on the platform."
-            : "Contact NexioBooks admins about accepted book requests and delivery."}
+            : "Contact NEXIOBOOKS admins about accepted book requests and delivery."}
         </p>
       </div>
       <MessagesClient

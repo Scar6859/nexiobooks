@@ -18,7 +18,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "NexioBooks — Turning old books into new opportunities",
+  title: "NEXIOBOOKS — Turning old books into new opportunities",
   description:
     "Buy, sell, and donate used AP, Regents, SAT, and ACT prep books within trusted school communities.",
 };

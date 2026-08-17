@@ -101,7 +101,7 @@ export default async function HomePage() {
             Study smarter. Waste less.
           </h2>
           <p className="mt-4 text-base text-[var(--muted)] sm:text-lg">
-            NexioBooks gives every study guide a second life — making exam prep more affordable,
+            NEXIOBOOKS gives every study guide a second life — making exam prep more affordable,
             sustainable, and accessible for students nearby.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">

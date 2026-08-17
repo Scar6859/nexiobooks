@@ -11,7 +11,7 @@ export default function Logo({
     return (
       <Image
         src="/brand/nexio-wordmark.png"
-        alt="NexioBooks"
+        alt="NEXIOBOOKS"
         width={220}
         height={72}
         className="h-10 w-auto object-contain sm:h-12"
@@ -23,7 +23,7 @@ export default function Logo({
   return (
     <Image
       src="/brand/nexio-mark.png"
-      alt="NexioBooks"
+      alt="NEXIOBOOKS"
       width={size}
       height={size}
       className="rounded-md object-contain"
