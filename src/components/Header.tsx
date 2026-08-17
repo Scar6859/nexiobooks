@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import Logo from "@/components/Logo";
+import NavWaffle from "@/components/NavWaffle";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useTheme } from "@/components/ThemeProvider";
 import Avatar from "@/components/Avatar";
+import { resolveIsAdmin } from "@/lib/auth";
 import { ensureUserProfile } from "@/lib/profile";
-import { LayoutGrid, X } from "lucide-react";
 
 const nav = [
   { href: "/buy", label: "Buy" },
@@ -28,23 +29,25 @@ type HeaderProfile = {
   full_name: string | null;
   initials: string | null;
   avatar_url: string | null;
+  is_admin: boolean;
 };
 
 export default function Header() {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<HeaderProfile | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
   const { theme } = useTheme();
   const isHome = pathname === "/";
   const isResetPage = pathname === "/reset-password";
   const onDarkBar = theme === "dark";
+  const isAdmin = resolveIsAdmin(user?.email, profile?.is_admin);
 
-  const mobileNav = [
-    ...nav.filter((item) => !item.auth || user),
-    ...(user ? [{ href: "/profile", label: "My Profile", auth: true }] : []),
+  const waffleNav = [
+    ...nav.filter((item) => !item.auth || (user && !isResetPage)),
+    ...(user && !isResetPage
+      ? [{ href: "/profile", label: "My Profile", auth: true }]
+      : []),
   ];
 
   useEffect(() => {
@@ -57,7 +60,7 @@ export default function Header() {
       await ensureUserProfile(supabase, nextUser);
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, initials, avatar_url")
+        .select("full_name, initials, avatar_url, is_admin")
         .eq("id", nextUser.id)
         .maybeSingle();
       setProfile(
@@ -66,6 +69,7 @@ export default function Header() {
               full_name: data.full_name,
               initials: data.initials,
               avatar_url: data.avatar_url ?? null,
+              is_admin: Boolean(data.is_admin),
             }
           : null,
       );
@@ -77,32 +81,6 @@ export default function Header() {
     });
     return () => sub.subscription.unsubscribe();
   }, [supabase]);
-
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-
-    function onPointerDown(e: MouseEvent | TouchEvent) {
-      if (!menuRef.current?.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMenuOpen(false);
-    }
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("touchstart", onPointerDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("touchstart", onPointerDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -127,71 +105,12 @@ export default function Header() {
     >
       <div className="mx-auto flex max-w-6xl flex-nowrap items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-3">
-          <div className="relative z-50 shrink-0 md:hidden" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setMenuOpen((open) => !open)}
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-              className={`flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--header-control-border)] text-[var(--header-text)] transition-all duration-200 hover:bg-[var(--header-control-hover)] sm:h-10 sm:w-10 ${
-                menuOpen ? "bg-[var(--header-control-hover)]" : ""
-              }`}
-            >
-              {menuOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <LayoutGrid className="h-5 w-5" />
-              )}
-            </button>
-
-            <div
-              className={`absolute left-0 top-[calc(100%+0.5rem)] z-50 w-[min(18rem,calc(100vw-2rem))] origin-top-left transition-all duration-200 ${
-                menuOpen
-                  ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
-                  : "pointer-events-none -translate-y-1 scale-95 opacity-0"
-              }`}
-              role="menu"
-            >
-              <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-xl shadow-black/20">
-                <p className="px-3 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
-                  Navigate
-                </p>
-                <div className="space-y-1">
-                  {mobileNav.map((item) => {
-                    const active =
-                      pathname === item.href ||
-                      pathname.startsWith(`${item.href}/`);
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        role="menuitem"
-                        onClick={() => setMenuOpen(false)}
-                        className={`flex items-center rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
-                          active
-                            ? "bg-[var(--navy)] text-white"
-                            : "text-[var(--foreground)] hover:bg-[var(--surface-2)]"
-                        }`}
-                      >
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                  {!user && (
-                    <Link
-                      href="/signup"
-                      role="menuitem"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center rounded-xl px-3 py-3 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--surface-2)] sm:hidden"
-                    >
-                      Sign up
-                    </Link>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <NavWaffle
+            items={waffleNav}
+            pathname={pathname}
+            alwaysVisible={isAdmin}
+            showSignup={!user}
+          />
 
           <Link
             href="/"
@@ -218,27 +137,29 @@ export default function Header() {
           </Link>
         </div>
 
-        <nav className="hidden min-w-0 shrink items-center gap-3 overflow-hidden md:flex lg:gap-5">
-          {nav
-            .filter((item) => !item.auth || (user && !isResetPage))
-            .map((item) => {
-              const active =
-                pathname === item.href || pathname.startsWith(`${item.href}/`);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`whitespace-nowrap text-sm font-medium ${themeColorTransition} ${
-                    active
-                      ? "text-[var(--header-nav-active)]"
-                      : "text-[var(--header-nav)] hover:text-[var(--header-nav-hover)]"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-        </nav>
+        {!isAdmin && (
+          <nav className="hidden min-w-0 shrink items-center gap-3 overflow-hidden md:flex lg:gap-5">
+            {nav
+              .filter((item) => !item.auth || (user && !isResetPage))
+              .map((item) => {
+                const active =
+                  pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`whitespace-nowrap text-sm font-medium ${themeColorTransition} ${
+                      active
+                        ? "text-[var(--header-nav-active)]"
+                        : "text-[var(--header-nav)] hover:text-[var(--header-nav-hover)]"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+          </nav>
+        )}
 
         <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
           <ThemeToggle />
