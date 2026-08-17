@@ -6,11 +6,19 @@ export function normalizeEmail(email: string): string {
 }
 
 export const PRIMARY_ADMIN_EMAIL = "oscarshao28@gmail.com";
+export const HERRICKS_ADMIN_EMAIL = "sonichenry214@gmail.com";
 
 const ADMIN_EMAILS = new Set([
   PRIMARY_ADMIN_EMAIL,
-  "sonichenry214@gmail.com",
+  HERRICKS_ADMIN_EMAIL,
 ]);
+
+/** Oscar Shao covers Manhasset; Henry Kim covers Herricks. */
+export function adminEmailForSchool(school: string | null | undefined): string {
+  const value = (school ?? "").toLowerCase();
+  if (value.includes("herricks")) return HERRICKS_ADMIN_EMAIL;
+  return PRIMARY_ADMIN_EMAIL;
+}
 
 export function isAdminEmail(email: string): boolean {
   return ADMIN_EMAILS.has(normalizeEmail(email));

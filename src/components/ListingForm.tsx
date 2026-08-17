@@ -13,6 +13,10 @@ import {
   uploadListingImages,
   uploadListingVideo,
 } from "@/lib/listings";
+import {
+  getAdminIdForSchool,
+  getOrCreateConversation,
+} from "@/lib/messaging";
 import type { Listing } from "@/lib/types";
 import FancySelect from "./FancySelect";
 import { ImagePlus, Video, X } from "lucide-react";
@@ -21,6 +25,8 @@ type ListingFormProps = {
   userId: string;
   sellerInitials: string;
   listing?: Listing;
+  mode?: "admin" | "handoff";
+  defaultLocation?: string;
 };
 
 function getErrorMessage(err: unknown): string {
@@ -47,10 +53,13 @@ export default function ListingForm({
   userId,
   sellerInitials,
   listing,
+  mode = "admin",
+  defaultLocation,
 }: ListingFormProps) {
   const router = useRouter();
   const supabase = createClient();
   const isEdit = Boolean(listing);
+  const isHandoff = mode === "handoff";
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,9 +187,55 @@ export default function ListingForm({
           video_url,
           seller_initials: sellerInitials,
           includeVideo: videoChanged,
+          ...(isHandoff
+            ? {
+                status: "pending" as const,
+                available: false,
+                submitted_by: userId,
+              }
+            : { status: "live" as const, available: true }),
         },
         isEdit && listing ? listing.id : undefined,
       );
+
+      if (isHandoff && !isEdit) {
+        const adminId = await getAdminIdForSchool(supabase, location);
+        if (!adminId || adminId === userId) {
+          throw new Error(
+            "Could not reach your school admin. Try Messages, or run supabase/fix-live-schema.sql.",
+          );
+        }
+        const conversation = await getOrCreateConversation(
+          supabase,
+          userId,
+          adminId,
+        );
+        if ("error" in conversation) {
+          throw new Error(conversation.error);
+        }
+        const priceLabel =
+          listingType === "donate" || price == null
+            ? "donation"
+            : `$${Number(price).toFixed(2)}`;
+        const body = [
+          `Hi — I'd like to list "${title}" (${priceLabel}).`,
+          "I need to arrange a time to hand the book over to you in person.",
+          `Pickup school: ${location}`,
+          `Condition: ${condition}`,
+          note ? `Note: ${note}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n");
+        const { error: messageError } = await supabase.from("messages").insert({
+          conversation_id: conversation.id,
+          sender_id: userId,
+          body,
+        });
+        if (messageError) throw messageError;
+        router.push(`/messages?c=${conversation.id}`);
+        router.refresh();
+        return;
+      }
 
       router.push(isEdit ? "/my-listings" : "/buy");
       router.refresh();
@@ -204,12 +259,18 @@ export default function ListingForm({
     >
       <div>
         <h2 className="text-xl font-bold text-[var(--foreground)]">
-          {isEdit ? "Edit listing" : "List a book"}
+          {isEdit
+            ? "Edit listing"
+            : isHandoff
+              ? "Request a listing"
+              : "List a book"}
         </h2>
         <p className="text-sm text-[var(--muted)]">
           {isEdit
             ? "Update your listing details, photos, and video."
-            : "Create a listing for your study materials."}
+            : isHandoff
+              ? "Fill in the book details. We'll message your school admin so you can arrange a time to hand the book over."
+              : "Create a listing for your study materials."}
         </p>
       </div>
 
@@ -288,7 +349,9 @@ export default function ListingForm({
         required
         defaultValue={
           SCHOOLS.find(
-            (s) => s.toLowerCase() === (listing?.location ?? "").toLowerCase(),
+            (s) =>
+              s.toLowerCase() ===
+              (listing?.location ?? defaultLocation ?? "").toLowerCase(),
           ) ?? SCHOOLS[0]
         }
         options={SCHOOLS}
@@ -420,7 +483,15 @@ export default function ListingForm({
           disabled={loading}
           className="btn-navy flex-1 py-3 text-sm disabled:opacity-60"
         >
-          {loading ? "Saving..." : isEdit ? "Save changes" : "Add listing"}
+          {loading
+            ? isHandoff
+              ? "Messaging admin..."
+              : "Saving..."
+            : isEdit
+              ? "Save changes"
+              : isHandoff
+                ? "Message admin"
+                : "Add listing"}
         </button>
       </div>
     </form>

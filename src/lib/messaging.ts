@@ -10,6 +10,17 @@ export function orderedPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
 }
 
+export async function getAdminIdForSchool(
+  supabase: SupabaseClient,
+  school?: string | null,
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("get_admin_id_for_school", {
+    school: school ?? "",
+  });
+  if (!error && data) return data as string;
+  return getPrimaryAdminId(supabase);
+}
+
 export async function getPrimaryAdminId(
   supabase: SupabaseClient,
 ): Promise<string | null> {
@@ -106,7 +117,7 @@ export function isMissingMessagingSchemaError(error: {
 } | null): boolean {
   if (!error?.message && !error?.code) return false;
   const message = `${error.code ?? ""} ${error.message ?? ""}`;
-  return /conversations|messages|get_primary_admin_id|schema cache|PGRST205|42P01|PGRST202/i.test(
+  return /conversations|messages|get_primary_admin_id|get_admin_id_for_school|schema cache|PGRST205|42P01|PGRST202/i.test(
     message,
   );
 }

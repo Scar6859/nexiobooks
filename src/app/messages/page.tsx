@@ -37,8 +37,10 @@ export default async function MessagesPage({
   // If opened from an accepted request, ensure a chat with the primary admin exists.
   let focusId = c ?? null;
   if (requestId && !isAdmin) {
+    const school = (profile as { school?: string | null } | null)?.school ?? "";
     const { data: adminId, error: adminError } = await supabase.rpc(
-      "get_primary_admin_id",
+      "get_admin_id_for_school",
+      { school },
     );
     if (!isMissingMessagingSchemaError(adminError) && adminId && adminId !== user.id) {
       const [one, two] =
@@ -205,6 +207,7 @@ export default async function MessagesPage({
       <MessagesClient
         currentUserId={user.id}
         isAdmin={isAdmin}
+        userSchool={(profile as { school?: string | null } | null)?.school}
         conversations={rows}
         allUsers={allUsers}
         initialConversationId={focusId}
