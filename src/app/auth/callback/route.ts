@@ -49,5 +49,17 @@ export async function GET(request: Request) {
     await ensureUserProfile(supabase, user);
   }
 
-  return NextResponse.redirect(redirectUrl);
+  const response = NextResponse.redirect(redirectUrl);
+
+  // When the recovery flow lands on reset-password, flag it with a short-lived
+  // cookie so the client page can confirm the user arrived via a real reset link.
+  if (next === "/reset-password") {
+    response.cookies.set("reset-in-progress", "1", {
+      maxAge: 600,
+      path: "/",
+      sameSite: "lax",
+    });
+  }
+
+  return response;
 }

@@ -8,40 +8,48 @@ import { createClient } from "@/lib/supabase/client";
 export default function ResetPasswordPage() {
   const router = useRouter();
   const supabase = createClient();
+  // true only when Supabase has confirmed this is a PASSWORD_RECOVERY session
+  const [recoveryReady, setRecoveryReady] = useState(false);
   const [ready, setReady] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
 
   useEffect(() => {
-    let active = true;
+    // Check for the short-lived cookie set by /auth/callback or /auth/confirm
+    // when a real password-recovery email link is followed.
+    const hasCookie = document.cookie
+      .split(";")
+      .some((c) => c.trim().startsWith("reset-in-progress="));
 
-    async function bootstrap() {
-      // Support recovery links that land with a hash/session already present.
-      await supabase.auth.getSession();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!active) return;
-      setHasSession(Boolean(user));
+    if (hasCookie) {
+      // Consume the cookie immediately so it can't be reused.
+      document.cookie = "reset-in-progress=; Max-Age=0; path=/";
+      setRecoveryReady(true);
       setReady(true);
+      return () => {};
     }
 
+    // Fallback: also accept the PASSWORD_RECOVERY event emitted by the
+    // client-side implicit/OTP flow (not used in the PKCE server-side path,
+    // but kept for completeness).
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
-        setHasSession(true);
+      if (event === "PASSWORD_RECOVERY") {
+        setRecoveryReady(true);
+        setReady(true);
+      } else if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
+        // Session exists but did not come from a recovery link.
         setReady(true);
       }
     });
 
-    void bootstrap();
+    // Fallback timeout so the UI doesn't spin forever.
+    const timeout = setTimeout(() => setReady(true), 2000);
 
     return () => {
-      active = false;
       subscription.unsubscribe();
+      clearTimeout(timeout);
     };
   }, [supabase]);
 
@@ -73,9 +81,9 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    setDone(true);
-    setLoading(false);
-    router.refresh();
+    // Sign the user out so they land on login and authenticate with the new password.
+    await supabase.auth.signOut();
+    router.replace("/login?reset=success");
   }
 
   if (!ready) {
@@ -86,7 +94,7 @@ export default function ResetPasswordPage() {
     );
   }
 
-  if (!hasSession) {
+  if (!recoveryReady) {
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-md items-center px-4 py-10">
         <div className="w-full space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-sm">
@@ -100,33 +108,6 @@ export default function ResetPasswordPage() {
           <Link href="/forgot-password" className="btn-navy inline-block px-6 py-3 text-sm">
             Request new link
           </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (done) {
-    return (
-      <div className="mx-auto flex min-h-[70vh] max-w-md items-center px-4 py-10">
-        <div className="w-full space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center shadow-sm">
-          <h1 className="text-2xl font-bold text-[var(--foreground)]">
-            Password updated
-          </h1>
-          <p className="text-sm text-[var(--muted)]">
-            Your password has been changed. You can keep browsing or head back
-            to log in on another device.
-          </p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <Link href="/buy" className="btn-navy px-6 py-3 text-sm">
-              Browse books
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-full border border-[var(--border)] px-6 py-3 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--surface-2)]"
-            >
-              Go to log in
-            </Link>
-          </div>
         </div>
       </div>
     );
