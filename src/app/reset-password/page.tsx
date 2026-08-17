@@ -1,17 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, Suspense } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-function ResetPasswordForm() {
+export default function ResetPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  // PKCE recovery flow: /auth/callback passes the raw code here without
-  // exchanging it, so no session exists yet when the user sees this form.
-  const code = searchParams.get("code");
-
   const supabase = createClient();
   const [ready, setReady] = useState(false);
   const [recoveryReady, setRecoveryReady] = useState(false);
@@ -19,16 +14,8 @@ function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // PKCE flow: a valid-looking code in the URL means the user arrived from
-    // the recovery email. Show the form immediately — no session yet.
-    if (code) {
-      setRecoveryReady(true);
-      setReady(true);
-      return;
-    }
-
-    // OTP / token_hash flow: /auth/confirm verifies the token server-side
-    // (session is already established) and sets this short-lived cookie.
+    // /auth/callback (PKCE) and /auth/confirm (token_hash) both set this
+    // short-lived cookie when routing here from a password-reset email.
     const hasCookie = document.cookie
       .split(";")
       .some((c) => c.trim().startsWith("reset-in-progress="));
@@ -40,7 +27,7 @@ function ResetPasswordForm() {
       return;
     }
 
-    // Implicit / legacy fallback: listen for the PASSWORD_RECOVERY event.
+    // Fallback: listen for the PASSWORD_RECOVERY auth event (implicit/legacy flow).
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
@@ -58,7 +45,7 @@ function ResetPasswordForm() {
       subscription.unsubscribe();
       clearTimeout(timeout);
     };
-  }, [code, supabase]);
+  }, [supabase]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -81,19 +68,6 @@ function ResetPasswordForm() {
       return;
     }
 
-    // PKCE flow: exchange the code for a short-lived session now that the
-    // user has confirmed they want to proceed.
-    if (code) {
-      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-      if (exchangeError) {
-        setError(
-          "This reset link has expired or already been used. Please request a new one."
-        );
-        setLoading(false);
-        return;
-      }
-    }
-
     const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
       setError(updateError.message);
@@ -101,7 +75,7 @@ function ResetPasswordForm() {
       return;
     }
 
-    // Sign out immediately so the user must log in with their new password.
+    // Sign out immediately — user must log in with their new password.
     await supabase.auth.signOut();
     router.replace("/login?reset=success");
   }
@@ -179,19 +153,5 @@ function ResetPasswordForm() {
         </button>
       </form>
     </div>
-  );
-}
-
-export default function ResetPasswordPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="mx-auto flex min-h-[70vh] max-w-md items-center justify-center px-4 py-10 text-sm text-[var(--muted)]">
-          Checking reset link...
-        </div>
-      }
-    >
-      <ResetPasswordForm />
-    </Suspense>
   );
 }

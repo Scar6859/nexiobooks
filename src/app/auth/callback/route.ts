@@ -15,15 +15,6 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const next = safeNextPath(searchParams.get("next"));
 
-  // For password recovery: hand the raw code to the reset-password page so
-  // the session is established only when the user submits their new password,
-  // not before they even see the form.
-  if (next === "/reset-password" && code) {
-    const url = new URL(`${origin}/reset-password`);
-    url.searchParams.set("code", code);
-    return NextResponse.redirect(url.toString());
-  }
-
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,5 +48,17 @@ export async function GET(request: Request) {
     await ensureUserProfile(supabase, user);
   }
 
-  return NextResponse.redirect(`${origin}${next}`);
+  const response = NextResponse.redirect(`${origin}${next}`);
+
+  // For password recovery: set a short-lived cookie so the reset-password
+  // page knows the user arrived via a genuine reset link and shows the form.
+  if (next === "/reset-password") {
+    response.cookies.set("reset-in-progress", "1", {
+      maxAge: 600,
+      path: "/",
+      sameSite: "lax",
+    });
+  }
+
+  return response;
 }
