@@ -24,6 +24,8 @@ export type Listing = {
   video_url: string | null;
   seller_initials: string | null;
   available: boolean;
+  status?: "pending" | "live" | "declined";
+  submitted_by?: string | null;
   created_at: string;
 };
 

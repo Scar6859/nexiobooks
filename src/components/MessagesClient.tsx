@@ -6,8 +6,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
   deleteEmptyConversation,
+  getAdminIdForSchool,
   getOrCreateConversation,
-  getPrimaryAdminId,
   type ConversationRow,
 } from "@/lib/messaging";
 import type { Profile } from "@/lib/types";
@@ -20,12 +20,14 @@ type AdminTab = "sellers" | "buyers";
 export default function MessagesClient({
   currentUserId,
   isAdmin,
+  userSchool,
   conversations,
   allUsers,
   initialConversationId,
 }: {
   currentUserId: string;
   isAdmin: boolean;
+  userSchool?: string | null;
   conversations: ConversationRow[];
   allUsers: Pick<Profile, "id" | "full_name" | "initials" | "avatar_url">[];
   initialConversationId?: string | null;
@@ -98,7 +100,7 @@ export default function MessagesClient({
       const deleted = await deleteEmptyConversation(supabase, activeId);
       if (deleted) setRows((prev) => prev.filter((c) => c.id !== activeId));
     }
-    const adminId = await getPrimaryAdminId(supabase);
+    const adminId = await getAdminIdForSchool(supabase, userSchool);
     if (!adminId) {
       setError("No administrator is available to message yet.");
       setStarting(false);

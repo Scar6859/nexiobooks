@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
+  getAdminIdForSchool,
   getOrCreateConversation,
-  getPrimaryAdminId,
 } from "@/lib/messaging";
 
 export default function ContactAdminButton({
@@ -30,7 +30,15 @@ export default function ContactAdminButton({
       return;
     }
 
-    const adminId = await getPrimaryAdminId(supabase);
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("school")
+      .eq("id", user.id)
+      .maybeSingle();
+    const adminId = await getAdminIdForSchool(
+      supabase,
+      (profile as { school?: string | null } | null)?.school,
+    );
     if (!adminId) {
       setError("Admin messaging isn't set up yet. Try again after the database migration.");
       setLoading(false);

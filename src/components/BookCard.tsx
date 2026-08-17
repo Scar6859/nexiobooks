@@ -115,6 +115,11 @@ export default function BookCard({
           <span className="rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-xs text-[var(--muted)]">
             {listing.condition}
           </span>
+          {listing.status === "pending" && (
+            <span className="rounded-full bg-[var(--gold)]/15 px-2.5 py-1 text-xs font-semibold text-[var(--gold-muted)]">
+              Pending approval
+            </span>
+          )}
         </div>
 
         <div className="mt-auto pt-5">
@@ -136,7 +141,7 @@ export default function BookCard({
                   {savings > 0 ? ` · Save $${savings.toFixed(0)}` : ""}
                 </div>
               )}
-              {!isOwn && (
+              {!isOwn && listing.status !== "pending" && (
                 <div className="mt-2 flex flex-col items-end gap-1">
                   <button
                     type="button"

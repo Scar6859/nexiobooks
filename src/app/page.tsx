@@ -8,12 +8,18 @@ async function getStats() {
   const supabase = await createClient();
   const { data: listings } = await supabase
     .from("listings")
-    .select("price, regular_price, listing_type");
+    .select("price, regular_price, listing_type, available, status");
 
-  const books = listings?.length ?? 0;
-  const donations = listings?.filter((l) => l.listing_type === "donate").length ?? 0;
+  const live =
+    listings?.filter(
+      (l) =>
+        (l.available ?? true) &&
+        (l.status == null || l.status === "live"),
+    ) ?? [];
+  const books = live.length;
+  const donations = live.filter((l) => l.listing_type === "donate").length;
   const savings =
-    listings?.reduce((sum, l) => {
+    live.reduce((sum, l) => {
       return (
         sum +
         calcListingSavings(

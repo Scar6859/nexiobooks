@@ -58,6 +58,8 @@ alter table public.profiles add column if not exists is_admin boolean not null d
 alter table public.listings add column if not exists image_urls text[] not null default '{}';
 alter table public.listings add column if not exists video_url text;
 alter table public.listings add column if not exists regular_price numeric(10, 2);
+alter table public.listings add column if not exists status text not null default 'live';
+alter table public.listings add column if not exists submitted_by uuid references auth.users(id) on delete set null;
 
 do $$
 begin
@@ -85,9 +87,18 @@ drop function if exists public.enforce_listing_limit();
 
 drop policy if exists "Authenticated users can create listings" on public.listings;
 drop policy if exists "Admins can create listings" on public.listings;
-create policy "Admins can create listings"
+drop policy if exists "Users can submit pending listings" on public.listings;
+create policy "Users can submit pending listings"
   on public.listings for insert
-  with check (public.is_admin());
+  with check (
+    public.is_admin()
+    or (
+      auth.uid() = user_id
+      and coalesce(submitted_by, auth.uid()) = auth.uid()
+      and coalesce(status, 'pending') = 'pending'
+      and available = false
+    )
+  );
 
 -- Refresh API schema cache
 notify pgrst, 'reload schema';

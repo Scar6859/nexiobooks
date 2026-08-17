@@ -26,6 +26,8 @@ create table if not exists public.listings (
   video_url text,
   seller_initials text,
   available boolean not null default true,
+  status text not null default 'live' check (status in ('pending', 'live', 'declined')),
+  submitted_by uuid references auth.users(id) on delete set null,
   created_at timestamptz default now(),
   constraint listings_image_urls_max check (coalesce(array_length(image_urls, 1), 0) <= 4)
 );
@@ -66,12 +68,26 @@ create policy "Users can insert own profile"
 create policy "Users can update own profile"
   on public.profiles for update using (auth.uid() = id);
 
-create policy "Listings are viewable by everyone"
-  on public.listings for select using (true);
+create policy "Listings are viewable"
+  on public.listings for select
+  using (
+    public.is_admin()
+    or auth.uid() = user_id
+    or auth.uid() = submitted_by
+    or coalesce(status, 'live') = 'live'
+  );
 
-create policy "Admins can create listings"
+create policy "Users can submit pending listings"
   on public.listings for insert
-  with check (public.is_admin());
+  with check (
+    public.is_admin()
+    or (
+      auth.uid() = user_id
+      and coalesce(submitted_by, auth.uid()) = auth.uid()
+      and coalesce(status, 'pending') = 'pending'
+      and available = false
+    )
+  );
 
 create policy "Users and admins can update listings"
   on public.listings for update
@@ -163,6 +179,22 @@ as $$
   );
 $$;
 
+create or replace function public.get_admin_id_for_school(school text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select id
+  from auth.users
+  where lower(email) = case
+    when lower(coalesce(school, '')) like '%herricks%' then 'sonichenry214@gmail.com'
+    else 'oscarshao28@gmail.com'
+  end
+  limit 1;
+$$;
+
 create or replace function public.get_primary_admin_id()
 returns uuid
 language sql
@@ -217,6 +249,7 @@ create policy "Participants can send messages"
 grant select, insert, update, delete on public.conversations to anon, authenticated;
 grant select, insert, update, delete on public.messages to anon, authenticated;
 grant execute on function public.get_primary_admin_id() to anon, authenticated;
+grant execute on function public.get_admin_id_for_school(text) to anon, authenticated;
 
 create or replace function public.delete_own_account()
 returns void

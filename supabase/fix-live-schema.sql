@@ -20,6 +20,12 @@ alter table public.listings
 alter table public.listings
   add column if not exists regular_price numeric(10, 2);
 
+alter table public.listings
+  add column if not exists status text not null default 'live';
+
+alter table public.listings
+  add column if not exists submitted_by uuid references auth.users(id) on delete set null;
+
 do $$
 begin
   if exists (
@@ -83,9 +89,18 @@ $$;
 
 drop policy if exists "Authenticated users can create listings" on public.listings;
 drop policy if exists "Admins can create listings" on public.listings;
-create policy "Admins can create listings"
+drop policy if exists "Users can submit pending listings" on public.listings;
+create policy "Users can submit pending listings"
   on public.listings for insert
-  with check (public.is_admin());
+  with check (
+    public.is_admin()
+    or (
+      auth.uid() = user_id
+      and coalesce(submitted_by, auth.uid()) = auth.uid()
+      and coalesce(status, 'pending') = 'pending'
+      and available = false
+    )
+  );
 
 drop policy if exists "Users and admins can update listings" on public.listings;
 create policy "Users and admins can update listings"
@@ -98,9 +113,15 @@ create policy "Users and admins can delete listings"
   using (auth.uid() = user_id or public.is_admin());
 
 drop policy if exists "Listings are viewable by everyone" on public.listings;
-create policy "Listings are viewable by everyone"
+drop policy if exists "Listings are viewable" on public.listings;
+create policy "Listings are viewable"
   on public.listings for select
-  using (true);
+  using (
+    public.is_admin()
+    or auth.uid() = user_id
+    or auth.uid() = submitted_by
+    or coalesce(status, 'live') = 'live'
+  );
 
 drop policy if exists "Buyers can create requests" on public.listing_requests;
 create policy "Buyers can create requests"
@@ -257,6 +278,22 @@ as $$
   select id from auth.users where lower(email) = 'oscarshao28@gmail.com' limit 1;
 $$;
 
+create or replace function public.get_admin_id_for_school(school text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select id
+  from auth.users
+  where lower(email) = case
+    when lower(coalesce(school, '')) like '%herricks%' then 'sonichenry214@gmail.com'
+    else 'oscarshao28@gmail.com'
+  end
+  limit 1;
+$$;
+
 drop policy if exists "Participants and admins can view conversations" on public.conversations;
 create policy "Participants and admins can view conversations"
   on public.conversations for select
@@ -315,6 +352,7 @@ create policy "Participants can send messages"
 grant select, insert, update, delete on public.conversations to anon, authenticated;
 grant select, insert, update, delete on public.messages to anon, authenticated;
 grant execute on function public.get_primary_admin_id() to anon, authenticated;
+grant execute on function public.get_admin_id_for_school(text) to anon, authenticated;
 
 create or replace function public.delete_own_account()
 returns void

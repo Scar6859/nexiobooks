@@ -19,13 +19,22 @@ export default async function BuyPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("listings")
     .select("*")
     .eq("available", true)
+    .or("status.eq.live,status.is.null")
     .order("created_at", { ascending: false });
 
-  const listings = normalizeListings(data);
+  const listingsQuery = error
+    ? await supabase
+        .from("listings")
+        .select("*")
+        .eq("available", true)
+        .order("created_at", { ascending: false })
+    : { data };
+
+  const listings = normalizeListings(listingsQuery.data);
   const sellerProfiles = await fetchSellerProfiles(supabase, listings);
   const listingsWithSellers = attachSellers(listings, sellerProfiles);
 

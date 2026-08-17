@@ -38,6 +38,11 @@ export function normalizeListing(row: ListingRow): Listing {
     video_url: (row.video_url as string | null | undefined) ?? null,
     regular_price:
       regular_price != null && !Number.isNaN(regular_price) ? regular_price : null,
+    status:
+      row.status === "pending" || row.status === "declined" || row.status === "live"
+        ? row.status
+        : "live",
+    submitted_by: (row.submitted_by as string | null | undefined) ?? null,
   };
 }
 
@@ -56,7 +61,7 @@ function getErrorMessage(err: unknown): string {
 
 export function isMissingListingColumnError(err: unknown): boolean {
   const message = getErrorMessage(err);
-  return /image_urls|video_url|regular_price|schema cache|column .* does not exist/i.test(
+  return /image_urls|video_url|regular_price|submitted_by|listings.status|schema cache|column .* does not exist/i.test(
     message,
   );
 }
@@ -75,6 +80,9 @@ type SaveListingInput = {
   video_url?: string | null;
   seller_initials: string;
   includeVideo: boolean;
+  status?: "pending" | "live" | "declined";
+  available?: boolean;
+  submitted_by?: string | null;
 };
 
 async function writeListing(
@@ -83,9 +91,14 @@ async function writeListing(
   existingId?: string,
 ) {
   if (existingId) {
-    return supabase.from("listings").update(row).eq("id", existingId);
+    return supabase
+      .from("listings")
+      .update(row)
+      .eq("id", existingId)
+      .select("id")
+      .maybeSingle();
   }
-  return supabase.from("listings").insert(row);
+  return supabase.from("listings").insert(row).select("id").single();
 }
 
 /** Insert/update with modern columns, falling back to legacy `image_url`. */
@@ -93,7 +106,7 @@ export async function saveListing(
   supabase: SupabaseClient,
   input: SaveListingInput,
   existingId?: string,
-): Promise<void> {
+): Promise<string> {
   const image_urls = normalizeImageUrls(input.image_urls);
   if (image_urls.length < 1) {
     throw new Error("Add at least one photo of the book.");
@@ -123,6 +136,9 @@ export async function saveListing(
     location: input.location,
     note: input.note,
     seller_initials: input.seller_initials,
+    ...(input.status ? { status: input.status } : {}),
+    ...(input.available != null ? { available: input.available } : {}),
+    ...(input.submitted_by ? { submitted_by: input.submitted_by } : {}),
     ...(existingId ? {} : { user_id: input.userId }),
   };
 
@@ -135,7 +151,11 @@ export async function saveListing(
   }
 
   const modernResult = await writeListing(supabase, modern, existingId);
-  if (!modernResult.error) return;
+  if (!modernResult.error) {
+    const id = existingId ?? (modernResult.data as { id?: string } | null)?.id;
+    if (!id) throw new Error("Could not save listing.");
+    return id;
+  }
 
   if (!isMissingListingColumnError(modernResult.error)) {
     throw modernResult.error;
@@ -146,8 +166,18 @@ export async function saveListing(
   }
 
   // Legacy schema: singular image_url (+ optional book_type), no image_urls/video_url.
+  const {
+    status: _status,
+    submitted_by: _submittedBy,
+    available: _available,
+    ...legacyBase
+  } = base as typeof base & {
+    status?: string;
+    submitted_by?: string;
+    available?: boolean;
+  };
   const legacy: Record<string, unknown> = {
-    ...base,
+    ...legacyBase,
     image_url: image_urls[0] ?? "",
   };
 
@@ -175,6 +205,26 @@ export async function saveListing(
     }
     throw legacyResult.error;
   }
+
+  const id = existingId ?? (legacyResult.data as { id?: string } | null)?.id;
+  if (!id) throw new Error("Could not save listing.");
+  return id;
+}
+
+export async function approveListingAsAdmin(
+  supabase: SupabaseClient,
+  listingId: string,
+  adminId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("listings")
+    .update({
+      user_id: adminId,
+      status: "live",
+      available: true,
+    })
+    .eq("id", listingId);
+  if (error) throw error;
 }
 
 export function attachSellers(
@@ -184,12 +234,14 @@ export function attachSellers(
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
   return listings.map((listing) => {
-    const profile = profileMap.get(listing.user_id);
+    const profile =
+      profileMap.get(listing.submitted_by || "") ||
+      profileMap.get(listing.user_id);
     const seller_name = profile?.full_name?.trim() || null;
     return {
       ...listing,
       seller_name,
-      seller_school: profile?.school?.trim() || null,
+      seller_school: profile?.school?.trim() || listing.location || null,
     };
   });
 }
@@ -198,7 +250,11 @@ export async function fetchSellerProfiles(
   supabase: SupabaseClient,
   listings: Listing[],
 ) {
-  const sellerIds = [...new Set(listings.map((l) => l.user_id).filter(Boolean))];
+  const sellerIds = [
+    ...new Set(
+      listings.flatMap((l) => [l.user_id, l.submitted_by]).filter(Boolean),
+    ),
+  ] as string[];
   if (sellerIds.length === 0) return [];
 
   const { data, error } = await supabase
