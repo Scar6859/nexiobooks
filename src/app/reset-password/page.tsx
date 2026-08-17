@@ -1,37 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // PKCE recovery flow: /auth/callback passes the raw code here without
+  // exchanging it, so no session exists yet when the user sees this form.
+  const code = searchParams.get("code");
+
   const supabase = createClient();
-  // true only when Supabase has confirmed this is a PASSWORD_RECOVERY session
-  const [recoveryReady, setRecoveryReady] = useState(false);
   const [ready, setReady] = useState(false);
+  const [recoveryReady, setRecoveryReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Check for the short-lived cookie set by /auth/callback or /auth/confirm
-    // when a real password-recovery email link is followed.
+    // PKCE flow: a valid-looking code in the URL means the user arrived from
+    // the recovery email. Show the form immediately — no session yet.
+    if (code) {
+      setRecoveryReady(true);
+      setReady(true);
+      return;
+    }
+
+    // OTP / token_hash flow: /auth/confirm verifies the token server-side
+    // (session is already established) and sets this short-lived cookie.
     const hasCookie = document.cookie
       .split(";")
       .some((c) => c.trim().startsWith("reset-in-progress="));
 
     if (hasCookie) {
-      // Consume the cookie immediately so it can't be reused.
       document.cookie = "reset-in-progress=; Max-Age=0; path=/";
       setRecoveryReady(true);
       setReady(true);
-      return () => {};
+      return;
     }
 
-    // Fallback: also accept the PASSWORD_RECOVERY event emitted by the
-    // client-side implicit/OTP flow (not used in the PKCE server-side path,
-    // but kept for completeness).
+    // Implicit / legacy fallback: listen for the PASSWORD_RECOVERY event.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
@@ -39,19 +48,17 @@ export default function ResetPasswordPage() {
         setRecoveryReady(true);
         setReady(true);
       } else if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
-        // Session exists but did not come from a recovery link.
         setReady(true);
       }
     });
 
-    // Fallback timeout so the UI doesn't spin forever.
     const timeout = setTimeout(() => setReady(true), 2000);
 
     return () => {
       subscription.unsubscribe();
       clearTimeout(timeout);
     };
-  }, [supabase]);
+  }, [code, supabase]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -74,6 +81,19 @@ export default function ResetPasswordPage() {
       return;
     }
 
+    // PKCE flow: exchange the code for a short-lived session now that the
+    // user has confirmed they want to proceed.
+    if (code) {
+      const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      if (exchangeError) {
+        setError(
+          "This reset link has expired or already been used. Please request a new one."
+        );
+        setLoading(false);
+        return;
+      }
+    }
+
     const { error: updateError } = await supabase.auth.updateUser({ password });
     if (updateError) {
       setError(updateError.message);
@@ -81,7 +101,7 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    // Sign the user out so they land on login and authenticate with the new password.
+    // Sign out immediately so the user must log in with their new password.
     await supabase.auth.signOut();
     router.replace("/login?reset=success");
   }
@@ -105,7 +125,10 @@ export default function ResetPasswordPage() {
             This password reset link is invalid or has expired. Request a new
             one and try again.
           </p>
-          <Link href="/forgot-password" className="btn-navy inline-block px-6 py-3 text-sm">
+          <Link
+            href="/forgot-password"
+            className="btn-navy inline-block px-6 py-3 text-sm"
+          >
             Request new link
           </Link>
         </div>
@@ -156,5 +179,19 @@ export default function ResetPasswordPage() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto flex min-h-[70vh] max-w-md items-center justify-center px-4 py-10 text-sm text-[var(--muted)]">
+          Checking reset link...
+        </div>
+      }
+    >
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
