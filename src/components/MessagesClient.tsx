@@ -15,6 +15,8 @@ import Avatar from "@/components/Avatar";
 import ChatPanel from "@/components/ChatPanel";
 import FancySelect from "@/components/FancySelect";
 
+type AdminTab = "sellers" | "buyers";
+
 export default function MessagesClient({
   currentUserId,
   isAdmin,
@@ -41,6 +43,7 @@ export default function MessagesClient({
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickUserId, setPickUserId] = useState(messageableUsers[0]?.id ?? "");
+  const [adminTab, setAdminTab] = useState<AdminTab>("sellers");
 
   useEffect(() => {
     setRows(conversations);
@@ -59,6 +62,12 @@ export default function MessagesClient({
     () => rows.find((c) => c.id === activeId) ?? null,
     [rows, activeId],
   );
+
+  const visibleRows = useMemo(() => {
+    if (!isAdmin) return rows;
+    if (adminTab === "sellers") return rows.filter((c) => !c.listing_request_id);
+    return rows.filter((c) => !!c.listing_request_id);
+  }, [rows, isAdmin, adminTab]);
 
   async function discardEmpty(conversationId: string) {
     setRows((prev) => prev.filter((c) => c.id !== conversationId));
@@ -150,6 +159,25 @@ export default function MessagesClient({
           <h2 className="text-sm font-bold text-[var(--foreground)]">Chats</h2>
         </div>
 
+        {isAdmin && (
+          <div className="mb-3 flex rounded-xl bg-[var(--surface-2)] p-1">
+            {(["sellers", "buyers"] as AdminTab[]).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setAdminTab(tab)}
+                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold capitalize transition-colors ${
+                  adminTab === tab
+                    ? "bg-[var(--navy)] text-white shadow-sm"
+                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        )}
+
         {isAdmin && messageableUsers.length > 0 && (
           <div className="mb-3 space-y-2 rounded-xl bg-[var(--surface-2)] p-2">
             <FancySelect
@@ -192,12 +220,12 @@ export default function MessagesClient({
         )}
 
         <div className="space-y-1">
-          {rows.length === 0 ? (
+          {visibleRows.length === 0 ? (
             <p className="px-2 py-4 text-xs text-[var(--muted)]">
               No conversations yet.
             </p>
           ) : (
-            rows.map((c) => {
+            visibleRows.map((c) => {
               const selected = c.id === activeId;
               return (
                 <button
