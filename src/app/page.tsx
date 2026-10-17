@@ -38,9 +38,9 @@ async function fetchListingStats(
   // Prefer select("*") — unlike an explicit column list, this succeeds when
   // status/available/regular_price haven't been migrated yet and still returns
   // whichever of those columns do exist (so savings aren't silently zeroed).
-  const { data, error } = await supabase.from("listings").select("*");
-  if (!error) {
-    return normalizeListings(data).map((row) => ({
+  const full = await supabase.from("listings").select("*");
+  if (!full.error) {
+    return normalizeListings(full.data).map((row) => ({
       price: row.price,
       regular_price: row.regular_price,
       listing_type: row.listing_type,
@@ -49,29 +49,34 @@ async function fetchListingStats(
     }));
   }
 
-  // Narrower progressive fallbacks if "*" somehow fails.
-  const attempts = [
-    "price, regular_price, listing_type, available, status",
-    "price, regular_price, listing_type, available",
-    "price, regular_price, listing_type, status",
-    "price, regular_price, listing_type",
-    "price, listing_type",
-  ] as const;
-
-  for (const columns of attempts) {
-    const result = await supabase.from("listings").select(columns);
-    if (!result.error) {
-      return ((result.data as ListingStatRow[] | null) ?? []).map((row) => ({
-        price: row.price ?? null,
-        regular_price: row.regular_price ?? null,
-        listing_type: row.listing_type ?? null,
-        available: row.available ?? null,
-        status: row.status ?? null,
-      }));
-    }
+  // Keep regular_price in the fallback (the old path dropped it → $0 savings).
+  const withRegular = await supabase
+    .from("listings")
+    .select("price, regular_price, listing_type");
+  if (!withRegular.error) {
+    const rows = (withRegular.data ?? []) as unknown as ListingStatRow[];
+    return rows.map((row) => ({
+      price: row.price ?? null,
+      regular_price: row.regular_price ?? null,
+      listing_type: row.listing_type ?? null,
+      available: null,
+      status: null,
+    }));
   }
 
-  console.error("fetchListingStats failed", error);
+  const basic = await supabase.from("listings").select("price, listing_type");
+  if (!basic.error) {
+    const rows = (basic.data ?? []) as unknown as ListingStatRow[];
+    return rows.map((row) => ({
+      price: row.price ?? null,
+      regular_price: null,
+      listing_type: row.listing_type ?? null,
+      available: null,
+      status: null,
+    }));
+  }
+
+  console.error("fetchListingStats failed", full.error);
   return [];
 }
 
