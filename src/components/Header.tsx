@@ -38,10 +38,9 @@ export default function Header() {
   const [profile, setProfile] = useState<HeaderProfile | null>(null);
   const supabase = createClient();
   const { theme } = useTheme();
-  const isHome = pathname === "/";
   const isResetPage = pathname === "/reset-password";
-  const onDarkBar = theme === "dark";
   const isAdmin = resolveIsAdmin(user?.email, profile?.is_admin);
+  const onDarkBar = theme === "dark";
 
   const waffleNav = [
     ...nav.filter((item) => !item.auth || (user && !isResetPage)),
@@ -97,9 +96,7 @@ export default function Header() {
     <header
       className={`sticky top-0 z-50 border-b backdrop-blur-md ${themeColorTransition} ${
         onDarkBar
-          ? isHome
-            ? "border-white/10 bg-[var(--navy)]"
-            : "border-white/10 bg-[#050b14]"
+          ? "border-white/10 bg-[#050b14]"
           : "border-[var(--header-border)] bg-[var(--header-bg)]"
       }`}
     >
