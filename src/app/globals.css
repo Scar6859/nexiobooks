@@ -35,7 +35,7 @@ html.dark {
   --surface-2: #0c1624;
   --muted: #8b9aab;
   --border: rgba(255, 255, 255, 0.08);
-  --header-bg: rgba(5, 11, 20, 0.96);
+  --header-bg: #050b14;
   --header-border: rgba(255, 255, 255, 0.06);
   --header-text: #ffffff;
   --header-text-muted: rgba(255, 255, 255, 0.7);

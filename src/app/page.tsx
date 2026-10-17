@@ -4,31 +4,58 @@ import { createClient } from "@/lib/supabase/server";
 import { calcListingSavings } from "@/lib/constants";
 import { ArrowRight, BookOpen, Heart, ShieldCheck } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
+type ListingStatRow = {
+  price: number | string | null;
+  regular_price?: number | string | null;
+  listing_type: string | null;
+  available?: boolean | null;
+  status?: string | null;
+};
+
+function isLiveListing(l: ListingStatRow): boolean {
+  const available = l.available == null ? true : Boolean(l.available);
+  const status = l.status == null || l.status === "" ? "live" : l.status;
+  return available && status === "live";
+}
+
 async function getStats() {
   const supabase = await createClient();
-  const { data: listings } = await supabase
+
+  // Prefer full columns; fall back if status/available/regular_price aren't migrated yet.
+  let listings: ListingStatRow[] | null = null;
+  const full = await supabase
     .from("listings")
     .select("price, regular_price, listing_type, available, status");
 
-  const live =
-    listings?.filter(
-      (l) =>
-        (l.available ?? true) &&
-        (l.status == null || l.status === "live"),
-    ) ?? [];
+  if (!full.error) {
+    listings = (full.data as ListingStatRow[] | null) ?? [];
+  } else {
+    const basic = await supabase
+      .from("listings")
+      .select("price, listing_type");
+    listings = ((basic.data as ListingStatRow[] | null) ?? []).map((l) => ({
+      ...l,
+      regular_price: null,
+      available: true,
+      status: "live",
+    }));
+  }
+
+  const live = listings.filter(isLiveListing);
   const books = live.length;
   const donations = live.filter((l) => l.listing_type === "donate").length;
-  const savings =
-    live.reduce((sum, l) => {
-      return (
-        sum +
-        calcListingSavings(
-          l.regular_price == null ? null : Number(l.regular_price),
-          l.price == null ? null : Number(l.price),
-          l.listing_type as "sell" | "donate",
-        )
-      );
-    }, 0) ?? 0;
+  const savings = live.reduce((sum, l) => {
+    return (
+      sum +
+      calcListingSavings(
+        l.regular_price == null ? null : Number(l.regular_price),
+        l.price == null ? null : Number(l.price),
+        l.listing_type as "sell" | "donate",
+      )
+    );
+  }, 0);
 
   return { books, donations, savings: Math.round(savings) };
 }
@@ -110,17 +137,6 @@ export default async function HomePage() {
             NEXIOBOOKS gives every study guide a second life — making exam prep more affordable,
             sustainable, and accessible for students nearby.
           </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link href="/buy?donate=1" className="btn-primary">
-              Find donations
-            </Link>
-            <Link
-              href="/about"
-              className="rounded-full border border-[var(--border)] px-6 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--gold)] hover:text-[var(--gold-muted)]"
-            >
-              About us
-            </Link>
-          </div>
         </div>
       </section>
     </div>
