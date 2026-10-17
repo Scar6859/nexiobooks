@@ -2,9 +2,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { calcListingSavings } from "@/lib/constants";
+import { normalizeListings } from "@/lib/listings";
 import { ArrowRight, BookOpen, Heart, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 type ListingStatRow = {
   price: number | string | null;
@@ -14,44 +17,77 @@ type ListingStatRow = {
   status?: string | null;
 };
 
-function isLiveListing(l: ListingStatRow): boolean {
-  const available = l.available == null ? true : Boolean(l.available);
-  const status = l.status == null || l.status === "" ? "live" : l.status;
-  return available && status === "live";
+function isCountedListing(l: ListingStatRow): boolean {
+  // Pending/declined submissions never count. Missing status = live (pre-migration).
+  const status = l.status == null || l.status === "" ? "live" : String(l.status);
+  if (status === "pending" || status === "declined") return false;
+  // Missing available = still listed (pre-migration / older rows).
+  if (l.available == null) return true;
+  return Boolean(l.available);
+}
+
+function toNumber(value: number | string | null | undefined): number | null {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isNaN(n) ? null : n;
+}
+
+async function fetchListingStats(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<ListingStatRow[]> {
+  // Prefer select("*") — unlike an explicit column list, this succeeds when
+  // status/available/regular_price haven't been migrated yet and still returns
+  // whichever of those columns do exist (so savings aren't silently zeroed).
+  const { data, error } = await supabase.from("listings").select("*");
+  if (!error) {
+    return normalizeListings(data).map((row) => ({
+      price: row.price,
+      regular_price: row.regular_price,
+      listing_type: row.listing_type,
+      available: row.available,
+      status: row.status,
+    }));
+  }
+
+  // Narrower progressive fallbacks if "*" somehow fails.
+  const attempts = [
+    "price, regular_price, listing_type, available, status",
+    "price, regular_price, listing_type, available",
+    "price, regular_price, listing_type, status",
+    "price, regular_price, listing_type",
+    "price, listing_type",
+  ] as const;
+
+  for (const columns of attempts) {
+    const result = await supabase.from("listings").select(columns);
+    if (!result.error) {
+      return ((result.data as ListingStatRow[] | null) ?? []).map((row) => ({
+        price: row.price ?? null,
+        regular_price: row.regular_price ?? null,
+        listing_type: row.listing_type ?? null,
+        available: row.available ?? null,
+        status: row.status ?? null,
+      }));
+    }
+  }
+
+  console.error("fetchListingStats failed", error);
+  return [];
 }
 
 async function getStats() {
   const supabase = await createClient();
+  const listings = await fetchListingStats(supabase);
+  const counted = listings.filter(isCountedListing);
 
-  // Prefer full columns; fall back if status/available/regular_price aren't migrated yet.
-  let listings: ListingStatRow[] | null = null;
-  const full = await supabase
-    .from("listings")
-    .select("price, regular_price, listing_type, available, status");
-
-  if (!full.error) {
-    listings = (full.data as ListingStatRow[] | null) ?? [];
-  } else {
-    const basic = await supabase
-      .from("listings")
-      .select("price, listing_type");
-    listings = ((basic.data as ListingStatRow[] | null) ?? []).map((l) => ({
-      ...l,
-      regular_price: null,
-      available: true,
-      status: "live",
-    }));
-  }
-
-  const live = listings.filter(isLiveListing);
-  const books = live.length;
-  const donations = live.filter((l) => l.listing_type === "donate").length;
-  const savings = live.reduce((sum, l) => {
+  const books = counted.length;
+  const donations = counted.filter((l) => l.listing_type === "donate").length;
+  const savings = counted.reduce((sum, l) => {
     return (
       sum +
       calcListingSavings(
-        l.regular_price == null ? null : Number(l.regular_price),
-        l.price == null ? null : Number(l.price),
+        toNumber(l.regular_price),
+        toNumber(l.price),
         l.listing_type as "sell" | "donate",
       )
     );
@@ -113,7 +149,7 @@ export default async function HomePage() {
             <div className="text-center">
               <ShieldCheck className="mx-auto h-6 w-6 text-[var(--gold-muted)]" />
               <div className="mt-3 font-display text-4xl font-semibold text-[var(--foreground)]">
-                ${stats.savings}
+                ${stats.savings.toLocaleString()}
               </div>
               <div className="mt-1 text-sm text-[var(--muted)]">Estimated savings</div>
             </div>
